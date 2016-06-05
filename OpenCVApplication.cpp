@@ -60,8 +60,8 @@ Mat gaussFiltration(Mat src) {
 }
 
 void gradientModuleAndDirection(Mat src, Mat* mod, Mat* dir) {
-	*mod = src.clone();
-	*dir = src.clone();
+	*mod = src.clone();//Mat(height, width, CV_64F, double(0));
+	*dir = src.clone();//Mat(height, width, CV_64F, double(0));
 	//paralelizare
 	std::vector< std::vector<double>> filterJ = { { -1, 0, 1 }, { -1, 0, 1 }, { -1, 0, 1 } };
 	std::vector< std::vector<double>> filterI = { { 1, 1, 1 }, { 0, 0, 0 }, { -1, -1, -1 } };
@@ -75,17 +75,11 @@ void gradientModuleAndDirection(Mat src, Mat* mod, Mat* dir) {
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width; j++) {
 			(*mod).at<uchar>(i, j) = sqrt(pow(convI.at<uchar>(i, j), 2) + pow(convJ.at<uchar>(i, j), 2));
-			(*dir).at<uchar>(i, j) = std::atan(convI.at<uchar>(i, j) / convJ.at<uchar>(i, j)) * 180 / M_PI;
+			if (convJ.at<uchar>(i, j) != 0) {
+				(*dir).at<uchar>(i, j) = std::atan(convJ.at<uchar>(i, j) / convJ.at<uchar>(i, j)) * 180 / M_PI;
+			}
 		}
 	}
-}
-
-Mat detectiePuncteMuchie(Mat src) {
-	Mat dst = src.clone();
-	Mat noiseFiltration = gaussFiltration(src);
-	Mat mod, dir;
-	gradientModuleAndDirection(noiseFiltration, &mod, &dir);
-	return dst;
 }
 
 int dirCuantification(double value) {
@@ -94,43 +88,72 @@ int dirCuantification(double value) {
 	switch (raport) {
 		case 0:
 		case -7:
+		case 7:
+		case 8:
+		case -8:
+		case 15:
+		case 16:
 			return 2;
 		case 1:
 		case 2:
 		case -5:
 		case -6:
+		case 9:
+		case 10:
 			return 1;
 		case 3:
 		case 4:
 		case -3:
 		case -4:
+		case 11:
+		case 12:
 			return 0;
 		case 5:
 		case 6:
 		case -1:
 		case -2:
+		case 13:
+		case 14:
 			return 3;
 	}
 }
 
 Mat nonMaxSuprimation(Mat module, Mat dir) {
-	Mat dest = cv::Mat::zeros(height, width, CV_32F);
+	Mat dest = module.clone();//Mat(height, width, CV_32F, double(0));
 	std::vector<double> offsetI = { -1, -1, 0, -1 };
 	std::vector<double> offsetJ = { 0, 1, -1, -1 };
-	for (int i = 0; i < width; i++) {
-		for (int j = 0; j < height; j++) {
-			int cuantifiedDirection = (dirCuantification(dir.at<uchar>(i, j));
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			int cuantifiedDirection = (dirCuantification(dir.at<uchar>(i, j)));
 			int newI1 = i + offsetI[cuantifiedDirection];
 			int newJ1 = j + offsetJ[cuantifiedDirection];
 			int newI2 = i - offsetI[cuantifiedDirection];
 			int newJ2 = j - offsetJ[cuantifiedDirection];
-			if (module.at<uchar>(i, j) > module.at<uchar>(newI1, newJ1) &&
-				module.at<uchar>(i, j) > module.at<uchar>(newI2, newJ2)) {
-				dest.at<uchar>(i, j) = 255;
+			bool isMax = true;
+			if (isInRange(newI1, newJ1)) {
+				if (!module.at<uchar>(i, j) > module.at<uchar>(newI1, newJ1)) {
+					dest.at<uchar>(i, j) = 0;
+					isMax = false;
+				}
+			}
+			if (isInRange(newI2, newJ2) && isMax) {
+				if (!module.at<uchar>(i, j) > module.at<uchar>(newI2, newJ2)) {
+					dest.at<uchar>(i, j) = 0;
+
+				}
 			}
 		}
 	}
 	return dest;
+}
+
+Mat detectiePuncteMuchie(Mat src) {
+	Mat dst = src.clone();
+	Mat noiseFiltration = gaussFiltration(src);
+	Mat mod, dir;
+	gradientModuleAndDirection(noiseFiltration, &mod, &dir);
+	Mat suprimated = nonMaxSuprimation(mod, dir);
+	return suprimated;
 }
 
 bool isInRange(int i, int j) {
@@ -216,14 +239,12 @@ int main()
 	system("cls");
 	destroyAllWindows();
 	Mat src = openImage();
-	Mat filter = gaussFiltration(src);
-	//Mat contours = detectiePuncteMuchie(src);
+	Mat contours = detectiePuncteMuchie(src);
 	//Mat inverse = ipm(contours);
 
 	imshow("input image", src);
-	//imshow("countouring", contours);
+	imshow("countouring", contours);
 	//imshow("inverse image", inverse);
-	imshow("Filtration", filter);
 	waitKey();
 		
 	return 0;
