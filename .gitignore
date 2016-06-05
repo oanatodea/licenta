@@ -4,5 +4,6 @@
 \OpenCV
 \clean.bat
 \OpenCVApplication.sdf
+\OpenCVApplication.opensdf
 \OpenCVApplication.vcxproj
 \OpenCVApplication.vcxproj

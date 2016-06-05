@@ -18,6 +18,7 @@ Mat openImage() {
 	char fname[MAX_PATH] = "C:\\Users\\Oana\\Desktop\\licenta\\srcgray.png";
 	//while (openFileDlg(fname))
 	//{
+	//openFileDlg(fname);
 	Mat src, graySrc;
 	src = imread(fname);
 
@@ -42,11 +43,12 @@ Mat convolution(Mat src, std::vector< std::vector<double>> filter, std::vector<d
 					int newI = i + offsetI[filterI];
 					int newJ = j + offsetJ[filterJ];
 					if (isInRange(newI, newJ)) {
-						newValue += filter[filterI][filterJ] * src.at<uchar>(newI, newJ);
+						double value = src.at<uchar>(newI, newJ);
+						newValue =newValue + filter[filterI][filterJ] * value;
 					}
 				}
 			}
-			dst.at<uchar>(i, j) = newValue;
+			dst.at<uchar>(i, j) = newValue / (4 * sqrt(2));
 		}
 	}
 	return dst;
@@ -63,21 +65,19 @@ void gradientModuleAndDirection(Mat src, Mat* mod, Mat* dir) {
 	*mod = src.clone();//Mat(height, width, CV_64F, double(0));
 	*dir = src.clone();//Mat(height, width, CV_64F, double(0));
 	//paralelizare
-	std::vector< std::vector<double>> filterJ = { { -1, 0, 1 }, { -1, 0, 1 }, { -1, 0, 1 } };
-	std::vector< std::vector<double>> filterI = { { 1, 1, 1 }, { 0, 0, 0 }, { -1, -1, -1 } };
+	std::vector< std::vector<double>> filterX = { { -1, 0, 1 }, { -2, 0, 2 }, { -1, 0, 1 } };
+	std::vector< std::vector<double>> filterY = { { 1, 2, 1 }, { 0, 0, 0 }, { -1, -2, -1 } };
 	std::vector<double> offsetI = { -1, 0, 1 };
 	std::vector<double> offsetJ = { -1, 0, 1 };
 
 	//paralelizare
-	Mat convI = convolution(src, filterI, offsetI, offsetJ);
-	Mat convJ = convolution(src, filterJ, offsetI, offsetJ);
+	Mat convX = convolution(src, filterX, offsetI, offsetJ);
+	Mat convY = convolution(src, filterY, offsetI, offsetJ);
 
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width; j++) {
-			(*mod).at<uchar>(i, j) = sqrt(pow(convI.at<uchar>(i, j), 2) + pow(convJ.at<uchar>(i, j), 2));
-			if (convJ.at<uchar>(i, j) != 0) {
-				(*dir).at<uchar>(i, j) = std::atan(convJ.at<uchar>(i, j) / convJ.at<uchar>(i, j)) * 180 / M_PI;
-			}
+			(*mod).at<uchar>(i, j) = sqrt(pow(convX.at<uchar>(i, j), 2) + pow(convY.at<uchar>(i, j), 2));
+			(*dir).at<uchar>(i, j) = std::atan2(convY.at<uchar>(i, j), convX.at<uchar>(i, j)) * 180 / M_PI;
 		}
 	}
 }
@@ -147,13 +147,105 @@ Mat nonMaxSuprimation(Mat module, Mat dir) {
 	return dest;
 }
 
+int binarizationThreshold(Mat module) {
+	const double p = 0.01;
+	int *hist = new int[256]();
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			int normalizedValue = module.at<uchar>(i, j);
+			hist[normalizedValue]++;
+		}
+	}
+	int nonMuchie = (1 - p) * (width * height - hist[0]);
+	int adaptiveThreshold = 0;
+	int sum = 0;
+	for (int i = 1; i <= 255; i++) {
+		sum += hist[i];
+		if (sum > nonMuchie) {
+			adaptiveThreshold = i;
+			break;
+		}
+	}
+	return adaptiveThreshold;
+}
+
+struct point{
+	int i;
+	int j;
+};
+
+Mat histereza(Mat mod, int adaptiveThreshold) {
+	Mat dst = mod.clone();
+	const double k = 0.4;
+	const int muchieTare = 255;
+	const int muchieSlaba = 128;
+	double lowThreshold = k * adaptiveThreshold;
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			if (mod.at<uchar>(i, j) >= adaptiveThreshold) {
+				dst.at<uchar>(i, j) = muchieTare;
+			}else if (mod.at<uchar>(i, j) >= lowThreshold) {
+				dst.at<uchar>(i, j) = muchieSlaba;
+			}
+			else {
+				dst.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+	std::deque<point*> points;
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			if (dst.at<uchar>(i, j) == muchieTare) {
+				point *p = new point();
+				p->i = i;
+				p->j = j;
+				points.push_back(p);
+			}
+		}
+	}
+	//find neighbours
+	std::vector<double> offsetI = { -1, 0, 1 };
+	std::vector<double> offsetJ = { -1, 0, 1 };
+	while (!points.empty()) {
+		point *p = points.front();
+		points.pop_front();
+		for (int i = 0; i < offsetI.size(); i++) {
+			for (int j = 0; j < offsetJ.size(); j++) {
+				int newI = p->i + offsetI[i];
+				int newJ = p->j + offsetJ[j];
+				if (isInRange(newI, newJ)) {
+					if (dst.at<uchar>(newI, newJ) == muchieSlaba) {
+						dst.at<uchar>(newI, newJ) = muchieTare;
+						points.push_back(p);
+					}
+				}
+			}
+		}
+	}
+	//eliminate non-muchii
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			if (dst.at<uchar>(i, j) == muchieSlaba) {
+				dst.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+	return dst;
+}
+
+Mat binarizarePrinHistereza(Mat src, Mat mod) {
+	int adaptiveThreshold = binarizationThreshold(mod);
+	return histereza(mod, adaptiveThreshold);
+	
+}
+
 Mat detectiePuncteMuchie(Mat src) {
-	Mat dst = src.clone();
 	Mat noiseFiltration = gaussFiltration(src);
 	Mat mod, dir;
 	gradientModuleAndDirection(noiseFiltration, &mod, &dir);
 	Mat suprimated = nonMaxSuprimation(mod, dir);
-	return suprimated;
+	Mat dst = binarizarePrinHistereza(suprimated, mod);
+	return dst;
 }
 
 bool isInRange(int i, int j) {
