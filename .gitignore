@@ -4,9 +4,5 @@
 \OpenCV
 \clean.bat
 \OpenCVApplication.sdf
-\OpenCVApplication.sln
-<<<<<<< HEAD
 \OpenCVApplication.vcxproj
-=======
 \OpenCVApplication.vcxproj
->>>>>>> b9e28f5e1aaac6bf19ac84c036c8813690c694ba
