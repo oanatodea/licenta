@@ -48,7 +48,13 @@ Mat convolution(Mat src, std::vector< std::vector<double>> filter, std::vector<d
 					}
 				}
 			}
-			dst.at<uchar>(i, j) = newValue / (4 * sqrt(2));
+			if (newValue > 255) {
+				newValue = 255;
+			}
+			if (newValue < 0) {
+				newValue = 0;
+			}
+			dst.at<uchar>(i, j) = newValue;
 		}
 	}
 	return dst;
@@ -62,8 +68,8 @@ Mat gaussFiltration(Mat src) {
 }
 
 void gradientModuleAndDirection(Mat src, Mat* mod, Mat* dir) {
-	*mod = src.clone();//Mat(height, width, CV_64F, double(0));
-	*dir = src.clone();//Mat(height, width, CV_64F, double(0));
+	*mod = src.clone();
+	*dir = src.clone();
 	//paralelizare
 	std::vector< std::vector<double>> filterX = { { -1, 0, 1 }, { -2, 0, 2 }, { -1, 0, 1 } };
 	std::vector< std::vector<double>> filterY = { { 1, 2, 1 }, { 0, 0, 0 }, { -1, -2, -1 } };
@@ -84,62 +90,62 @@ void gradientModuleAndDirection(Mat src, Mat* mod, Mat* dir) {
 
 int dirCuantification(double value) {
 	double halfPeriod = 45.0 / 2;
-	int raport = value / halfPeriod;
-	switch (raport) {
-		case 0:
-		case -7:
-		case 7:
-		case 8:
-		case -8:
-		case 15:
-		case 16:
-			return 2;
-		case 1:
-		case 2:
-		case -5:
-		case -6:
-		case 9:
-		case 10:
-			return 1;
-		case 3:
-		case 4:
-		case -3:
-		case -4:
-		case 11:
-		case 12:
-			return 0;
-		case 5:
-		case 6:
-		case -1:
-		case -2:
-		case 13:
-		case 14:
-			return 3;
+	double raport = value / halfPeriod;
+	if ((raport >= -1 && raport < 1) || (raport >= 7 && raport <= 8) || (raport >= -8 && raport < -7)) {
+		return 2;
 	}
+	if ((raport >= 1 && raport < 3) || (raport >= -7 && raport < -5)) {
+		return 1;
+	}
+	if ((raport >= 3 && raport < 5) || (raport >= -5 && raport < -3)) {
+		return 0;
+	}
+	if ((raport >= 5 && raport < 7) || (raport >= -3 && raport < -1)) {
+		return 3;
+	}
+	return -1;
 }
 
 Mat nonMaxSuprimation(Mat module, Mat dir) {
-	Mat dest = module.clone();//Mat(height, width, CV_32F, double(0));
-	std::vector<double> offsetI = { -1, -1, 0, -1 };
-	std::vector<double> offsetJ = { 0, 1, -1, -1 };
+	// dest has to be a module clone
+	Mat dest = module.clone();
+	std::vector<double> offsetI = { 1, -1, 0, 1 };
+	std::vector<double> offsetJ = { 0, 1, 1, 1 };
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width; j++) {
 			int cuantifiedDirection = (dirCuantification(dir.at<uchar>(i, j)));
-			int newI1 = i + offsetI[cuantifiedDirection];
-			int newJ1 = j + offsetJ[cuantifiedDirection];
-			int newI2 = i - offsetI[cuantifiedDirection];
-			int newJ2 = j - offsetJ[cuantifiedDirection];
-			bool isMax = true;
-			if (isInRange(newI1, newJ1)) {
-				if (!module.at<uchar>(i, j) > module.at<uchar>(newI1, newJ1)) {
-					dest.at<uchar>(i, j) = 0;
-					isMax = false;
-				}
+			if (cuantifiedDirection == -1) {
+				printf("Error ! dir = %d\n", dir.at<uchar>(i, j));
+				break;
 			}
-			if (isInRange(newI2, newJ2) && isMax) {
-				if (!module.at<uchar>(i, j) > module.at<uchar>(newI2, newJ2)) {
-					dest.at<uchar>(i, j) = 0;
-
+			if (module.at<uchar>(i, j) != 0) {
+				int newI1 = i + offsetI[cuantifiedDirection];
+				int newJ1 = j + offsetJ[cuantifiedDirection];
+				int newI2 = i - offsetI[cuantifiedDirection];
+				int newJ2 = j - offsetJ[cuantifiedDirection];
+				if (isInRange(newI1, newJ1)) {
+					if (module.at<uchar>(i, j) < module.at<uchar>(newI1, newJ1)) {
+						dest.at<uchar>(i, j) = 0;
+					}
+					if (module.at<uchar>(i, j) == module.at<uchar>(newI1, newJ1)){
+						if (dest.at<uchar>(newI1, newJ1) != 0) {
+						//if destination is already 0 for neighbour => keep current pixel
+						//if not 0, make current pixel 0
+							dest.at<uchar>(i, j) = 0;
+						}
+					}
+				}
+				if (isInRange(newI2, newJ2)) {
+					if (module.at<uchar>(i, j) < module.at<uchar>(newI2, newJ2)) {
+						dest.at<uchar>(i, j) = 0;
+					}
+					if (module.at<uchar>(i, j) == module.at<uchar>(newI2, newJ2)){
+						if (dest.at<uchar>(newI2, newJ2) != 0) {
+						//if destination already 0 for neighbour => keep current pixel
+						//if not 0, make current pixel 0
+						dest.at<uchar>(i, j) = 0;
+						}
+					}
 				}
 			}
 		}
@@ -152,16 +158,16 @@ int binarizationThreshold(Mat module) {
 	int *hist = new int[256]();
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width; j++) {
-			int normalizedValue = module.at<uchar>(i, j);
+			int normalizedValue = module.at<uchar>(i, j) / (4 * sqrt(2));
 			hist[normalizedValue]++;
 		}
 	}
-	int nonMuchie = (1 - p) * (width * height - hist[0]);
+	int nrNonMuchii = (1 - p) * (width * height - hist[0]);
 	int adaptiveThreshold = 0;
 	int sum = 0;
 	for (int i = 1; i <= 255; i++) {
 		sum += hist[i];
-		if (sum > nonMuchie) {
+		if (sum > nrNonMuchii) {
 			adaptiveThreshold = i;
 			break;
 		}
@@ -233,10 +239,9 @@ Mat histereza(Mat mod, int adaptiveThreshold) {
 	return dst;
 }
 
-Mat binarizarePrinHistereza(Mat src, Mat mod) {
-	int adaptiveThreshold = binarizationThreshold(mod);
-	return histereza(mod, adaptiveThreshold);
-	
+Mat binarizarePrinHistereza(Mat src) {
+	int adaptiveThreshold = binarizationThreshold(src);
+	return histereza(src, adaptiveThreshold);
 }
 
 Mat detectiePuncteMuchie(Mat src) {
@@ -244,7 +249,8 @@ Mat detectiePuncteMuchie(Mat src) {
 	Mat mod, dir;
 	gradientModuleAndDirection(noiseFiltration, &mod, &dir);
 	Mat suprimated = nonMaxSuprimation(mod, dir);
-	Mat dst = binarizarePrinHistereza(suprimated, mod);
+	imshow("suprimated", suprimated);
+	Mat dst = binarizarePrinHistereza(suprimated);
 	return dst;
 }
 
@@ -335,7 +341,7 @@ int main()
 	//Mat inverse = ipm(contours);
 
 	imshow("input image", src);
-	imshow("countouring", contours);
+	imshow("contouring", contours);
 	//imshow("inverse image", inverse);
 	waitKey();
 		
