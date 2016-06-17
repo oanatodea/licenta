@@ -565,26 +565,53 @@ void hough(Mat src) {
 	drawLines(H, src);
 }
 
-void anotherHough(Mat mat) {
-	vector<Vec2f> lines;
+boolean isInLeftInterval(double theta) {
+	double theta_grades = theta * 180 / M_PI;
+	if (theta_grades < 60 && theta_grades > 30) {
+		return true;
+	}
+	return false;
+}
+
+boolean isInRightInterval(double theta) {
+	double theta_grades = theta * 180 / M_PI;
+	if (theta_grades >120 && theta_grades < 150) {
+		return true;
+	}
+	return false;
+}
+
+vector<Vec2f> normalHough(Mat mat, Mat src) {
+	vector<Vec2f> lines, goodLines;
 	HoughLines(mat, lines, 1, M_PI / 180, 100, 0, 0);
-	vector<Vec2f> letfLine, rightLine;
+	Vec2f leftLineExt, leftLineInt, rightLineInt, rightLineExt;
+	leftLineExt[1] = M_PI / 2;
+	leftLineInt[1] = 0;
+	rightLineExt[1] = M_PI / 2;
+	rightLineInt[1] = M_PI;
 	for (size_t i = 0; i < lines.size(); i++)
 	{
 		float rho = lines[i][0], theta = lines[i][1];
-		double theta_grades = theta * 180/ M_PI;
-		if ((theta_grades < 60 && theta_grades > 30) || (theta_grades > 120 && theta_grades < 150)) {
+		if (isInLeftInterval(theta) || isInRightInterval(theta)) {
 			Point pt1, pt2;
 			double a = cos(theta), b = sin(theta);
 			double x0 = a*rho, y0 = b*rho;
-			pt1.x = cvRound(x0 + 1000 * (-b));
-			pt1.y = cvRound(y0 + 1000 * (a));
-			pt2.x = cvRound(x0 - 1000 * (-b));
-			pt2.y = cvRound(y0 - 1000 * (a));
+			if (isInLeftInterval(theta)) {
+				//if (leftPoints)
+				pt1.x = cvRound(0);
+			}
+			if (isInRightInterval(theta)) {
+				pt1.x = cvRound(width - 1);
+			}
+			pt1.y = cvRound((rho - pt1.x * a) / b);
+			pt2.x = cvRound(width / 2);
+			pt2.y = cvRound((rho - pt2.x * a) / b);
 			line(mat, pt1, pt2, Scalar(255, 255, 255), 1, CV_AA);
+			goodLines.push_back(lines[i]);
 		}
 	}
 	imshow("hough", mat);
+	return goodLines;
 }
 
 int main()
@@ -598,8 +625,8 @@ int main()
 
 	showIntMat("Input image", src);
 	Mat canny_uchar = showIntMat("Canny", contur);
-	
-	anotherHough(canny_uchar);
+
+	vector<Vec2f> lines = normalHough(canny_uchar, src);
 	waitKey();
 		
 	return 0;
