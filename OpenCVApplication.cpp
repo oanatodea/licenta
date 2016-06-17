@@ -581,8 +581,58 @@ boolean isInRightInterval(double theta) {
 	return false;
 }
 
-vector<Vec2f> normalHough(Mat mat, Mat src) {
-	vector<Vec2f> lines, goodLines;
+void drawFoundLines(Vec2f lineExt, Vec2f lineInt, Mat img, boolean isLeft) {
+	Point pt1Int, pt2Int, pt1Ext, pt2Ext;
+	double rhoInt = lineInt[0];
+	double rhoExt = lineExt[0];
+	double aInt = cos(lineInt[1]), bInt = sin(lineInt[1]);
+	double aExt = cos(lineExt[1]), bExt = sin(lineExt[1]);
+	if (isLeft) {
+		pt1Int.x = 0;
+		pt1Ext.x = 0;
+	}
+	else {
+		pt1Int.x = width - 1;
+		pt1Ext.x = width - 1;
+	}
+	// interior line
+	pt1Int.y = cvRound((rhoInt - pt1Int.x * aInt) / bInt);
+	//pt2Int.x = cvRound(width / 2);
+	//pt2Int.y = cvRound((rhoInt - pt2Int.x * aInt) / bInt);
+	pt2Int.y = height / 2;
+	pt2Int.x = cvRound((rhoInt - pt2Int.y * bInt) / aInt);
+	// exterior line
+	pt1Ext.y = cvRound((rhoExt - pt1Ext.x * aExt) / bExt);
+	//pt2Ext.x = cvRound(width / 2);
+	//pt2Ext.y = cvRound((rhoExt - pt2Ext.x * aExt) / bExt);
+	pt2Ext.y = height / 2;
+	pt2Ext.x = cvRound((rhoExt - pt2Ext.y * bExt) / aExt);
+
+	vector<Point> points;
+	if (pt1Int.y < pt1Ext.y) {
+		Point aux = pt1Int;
+		pt1Int = pt1Ext;
+		pt1Ext = aux;
+	}
+	points.push_back(pt1Int);
+	if (isLeft && pt2Int.x < pt2Ext.x) {
+		Point aux = pt2Int;
+		pt2Int = pt2Ext;
+		pt2Ext = aux;
+	}
+	if (!isLeft && pt2Int.x > pt2Ext.x) {
+		Point aux = pt2Int;
+		pt2Int = pt2Ext;
+		pt2Ext = aux;
+	}
+	points.push_back(pt2Int);
+	points.push_back(pt2Ext);
+	points.push_back(pt1Ext);
+	polylines(img, points, true, Scalar(255, 255, 255), 2, CV_AA);
+}
+
+void normalHough(Mat mat, Mat src) {
+	vector<Vec2f> lines;
 	HoughLines(mat, lines, 1, M_PI / 180, 100, 0, 0);
 	Vec2f leftLineExt, leftLineInt, rightLineInt, rightLineExt;
 	leftLineExt[1] = M_PI / 2;
@@ -597,21 +647,29 @@ vector<Vec2f> normalHough(Mat mat, Mat src) {
 			double a = cos(theta), b = sin(theta);
 			double x0 = a*rho, y0 = b*rho;
 			if (isInLeftInterval(theta)) {
-				//if (leftPoints)
-				pt1.x = cvRound(0);
+				if (theta < leftLineExt[1]) {
+					leftLineExt = lines[i];
+				}
+				if (theta > leftLineInt[1]) {
+					leftLineInt = lines[i];
+				}
 			}
 			if (isInRightInterval(theta)) {
-				pt1.x = cvRound(width - 1);
+				if (theta < rightLineInt[1]) {
+					rightLineInt = lines[i];
+				}
+				if (theta > rightLineExt[1]) {
+					rightLineExt = lines[i];
+				}
 			}
-			pt1.y = cvRound((rho - pt1.x * a) / b);
-			pt2.x = cvRound(width / 2);
-			pt2.y = cvRound((rho - pt2.x * a) / b);
-			line(mat, pt1, pt2, Scalar(255, 255, 255), 1, CV_AA);
-			goodLines.push_back(lines[i]);
 		}
 	}
+
+	drawFoundLines(leftLineExt, leftLineInt, mat, true);
+	drawFoundLines(rightLineExt, rightLineInt, mat, false);
+
+
 	imshow("hough", mat);
-	return goodLines;
 }
 
 int main()
@@ -626,7 +684,7 @@ int main()
 	showIntMat("Input image", src);
 	Mat canny_uchar = showIntMat("Canny", contur);
 
-	vector<Vec2f> lines = normalHough(canny_uchar, src);
+	normalHough(canny_uchar, src);
 	waitKey();
 		
 	return 0;
