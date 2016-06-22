@@ -14,13 +14,14 @@ int height, width;
 
 bool isInRange(int i, int j);
 int dirCuantification(double value);
-Mat borderTracing(Mat src);
+//Mat borderTracing(Mat src);
+void stretch(Mat src, Point pLeft, Point pRight, Point pIntersection);
 
-Mat openImage() {
-	char fname[MAX_PATH] = "C:\\Users\\Oana\\Desktop\\licenta\\srcgray.png";
+Mat openImage(char* fname) {
+	//char fname[MAX_PATH] = "C:\\Users\\Oana\\Desktop\\licenta\\srcgray.png";
 	//while (openFileDlg(fname))
 	//{
-	openFileDlg(fname);
+	//openFileDlg(fname);
 	Mat src, graySrc;
 	src = imread(fname);
 
@@ -129,18 +130,18 @@ Mat nonMaxSuprimation(Mat module, Mat dir) {
 				printf("Error ! dir = %d\n", dir.at<int>(i, j));
 				break;
 			}
-			if (dst.at<int>(i, j) != 0) {
+			if (module.at<int>(i, j) != 0) {
 				int newI1 = i + offsetI[cuantifiedDirection];
 				int newJ1 = j + offsetJ[cuantifiedDirection];
 				int newI2 = i - offsetI[cuantifiedDirection];
 				int newJ2 = j - offsetJ[cuantifiedDirection];
 				if (isInRange(newI1, newJ1)) {
-					if (dst.at<int>(i, j) <= dst.at<int>(newI1, newJ1)) {
+					if (module.at<int>(i, j) <= module.at<int>(newI1, newJ1)) {
 						dst.at<int>(i, j) = 0;
 					}
 				}
 				if (isInRange(newI2, newJ2)) {
-					if (dst.at<int>(i, j) <= dst.at<int>(newI2, newJ2)) {
+					if (module.at<int>(i, j) <= module.at<int>(newI2, newJ2)) {
 						dst.at<int>(i, j) = 0;
 					}
 				}
@@ -271,196 +272,6 @@ bool isInRange(int i, int j) {
 	return true;
 }
 
-int searchForLeft(Mat src, int lastLeftJ, int i) {
-	int currentJ = lastLeftJ;
-	while (src.at<int>(i, currentJ) >= 255) {
-		currentJ++;
-	}
-	return currentJ;
-}
-
-int searchForRight(Mat src, int lastRightJ, int i) {
-	int currentJ = lastRightJ;
-	while (src.at<int>(i, currentJ) >= 255) {
-		currentJ--;
-	}
-	return currentJ;
-}
-
-Mat ipm(Mat src) {
-
-	Mat dst = src.clone();
-
-	for (int i = 0; i < height; i++)  {
-		for (int j = 0; j < width; j++) {
-			dst.at<int>(i, j) = 0;
-		}
-	}
-	//start for bottom
-	// start j from middle
-	int middle = width / 2;
-	int leftJ = middle, rightJ = middle;
-	int startLine = height - 2;
-	boolean found = false;
-	while (startLine >= 0 && !found) {
-		leftJ = middle;
-		while (src.at<int>(startLine, leftJ) != 255 && leftJ > 0) {
-			leftJ--;
-		}
-		if (leftJ != 0) {
-			found = true;
-		}
-		else {
-			startLine--;
-		}
-	}
-	while (src.at<int>(startLine, rightJ) != 255 && rightJ < width - 1) {
-		rightJ++;
-	}
-	int dLeft = 0;
-	int dRight = 0;
-	for (int i = startLine - 1; i >= height / 2; i--) {
-		int newLeftJ = searchForLeft(src, leftJ, i);
-		dLeft = dLeft + newLeftJ - leftJ;
-		leftJ = newLeftJ;
-		int newRightJ = searchForRight(src, rightJ, i);
-		dRight = dRight + rightJ - newRightJ;
-		rightJ = newRightJ;
-
-		//moveLeft
-		for (int j = 0; j <= leftJ - dLeft; j++) {
-			dst.at<int>(i, j) = src.at<int>(i, j + dLeft);
-		}
-		for (int j = leftJ - dLeft + 1; j <= leftJ; j++) {
-			dst.at<int>(i, j) = 0;
-		}
-
-		//moveRight
-		for (int j = width - 1; j >= rightJ + dRight; j--) {
-			dst.at<int>(i, j) = src.at<int>(i, j - dRight);
-		}
-		for (int j = rightJ + dRight - 1; j >= rightJ; j--) {
-			dst.at<int>(i, j) = 0;
-		}
-	}
-	return dst;
-}
-
-int computeI(int i, int dir) {
-	switch (dir) {
-	case 0: return i;
-	case 1: return i - 1;
-	case 2: return i - 1;
-	case 3: return i - 1;
-	case 4: return i;
-	case 5: return i + 1;
-	case 6: return i + 1;
-	case 7: return i + 1;
-	}
-}
-
-int computeJ(int j, int dir) {
-	switch (dir) {
-	case 0: return j + 1;
-	case 1: return j + 1;
-	case 2: return j;
-	case 3: return j - 1;
-	case 4: return j - 1;
-	case 5: return j - 1;
-	case 6: return j;
-	case 7: return j + 1;
-	}
-}
-
-boolean isStraightLine(vector<int> dir) {
-	if (dir.size() == 0) {
-		return false;
-	}
-	for (int i = 0; i < dir.size(); i++) {
-		if (dir.at(i) > 0 && dir.at(i) < 4) {
-			return false;
-		}
-	}
-	return true;
-}
-
-Mat borderTracing(Mat src) {
-	Mat dst = src.clone();
-	Mat lines = src.clone();
-	vector<int> indexI, indexJ, dir;
-	int index;
-	int found = 0;
-	for (int i = 0; i < height; i++)
-	{
-		for (int j = 0; j < width; j++)
-		{
-			dst.at<int>(i, j) = 0;
-			lines.at<int>(i, j) = 0;
-		}
-	}
-	for (int i = 0; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-			if (src.at<int>(i, j) == 255 && dst.at<int>(i, j) == 0 && (isInRange(i, j - 1) && src.at<int>(i, j - 1) == 0)) {
-				found++;
-				indexI.clear();
-				indexJ.clear();
-				dir.clear();
-				indexI.push_back(i);
-				indexJ.push_back(j);
-				index = 0;
-				dst.at<int>(indexI.at(index), indexJ.at(index)) = 255;
-				boolean forceStop = false;
-				while (!forceStop && (index == 0 || index == 1 || !((indexI.at(index) == indexI.at(1)) && (indexJ.at(index) == indexJ.at(1)) && (indexI.at(index - 1) == indexI.at(0)) && (indexJ.at(index - 1) == indexJ.at(0))))) {
-					int direction;
-					if (index == 0) {
-						direction = 5;
-					} else {
-						if (dir.at(index - 1) % 2 == 0) {
-							direction = (dir.at(index - 1) + 7) % 8;
-						}
-						else {
-							direction = (dir.at(index - 1) + 6) % 8;
-						}
-					}
-					int startDir = direction;
-					do {
-						int newI = computeI(indexI.at(index), direction);
-						int newJ = computeJ(indexJ.at(index), direction);
-						if (!isInRange(newI, newJ) || src.at<int>(newI, newJ) == 0) {
-							direction = (direction + 1) % 8;
-						}
-						else {
-							break;
-						}
-						if (direction == startDir) {
-							forceStop = true;
-							break;
-						}
-
-					} while (true);
-
-					if (!forceStop) {
-						//add next point
-						dir.push_back(direction);
-						indexI.push_back(computeI(indexI.at(index), direction));
-						indexJ.push_back(computeJ(indexJ.at(index), direction));
-						dst.at<int>(indexI.at(index + 1), indexJ.at(index + 1)) = 255;
-						index++;
-					}
-				}
-				if (isStraightLine(dir)) {
-					//draw line
-					for (int indexes = 0; indexes < indexI.size(); indexes++) {
-						lines.at<int>(indexI.at(indexes), indexJ.at(indexes)) = 255;
-					}
-				}
-			}
-		}
-	}
-	//imshow("lines", lines);
-	return dst;
-}
-
 Mat showIntMat(String message, Mat src) {
 	Mat dst = Mat(height, width, DataType<uchar>::type);
 	for (int i = 0; i < height; i++) {
@@ -468,7 +279,7 @@ Mat showIntMat(String message, Mat src) {
 			dst.at<uchar>(i, j) = (uchar)src.at<int>(i, j);
 		}
 	}
-	imshow(message, dst);
+	//imshow(message, dst);
 	return dst;
 }
 
@@ -480,89 +291,6 @@ void computeHough(int x, int y, double *H) {
 			H[ro * 360 + teta]++;
 		}
 	}
-}
-
-struct peak{
-	int t, r;
-	double h;
-	boolean peak::operator < (const peak &p2) const { return h > p2.h; };
-};
-
-boolean equals(peak p1, peak p2) {
-	const int tolerance = 2;
-	if ((p1.h >= (p2.h - tolerance)) && (p1.h <= (p2.h + tolerance))) {
-		return true;
-	}
-	if ((p2.h >= (p1.h - tolerance)) && (p2.h <= (p1.h + tolerance))) {
-		return true;
-	}
-	return false;
-}
-
-void drawLine(peak p, Mat img) {
-	// drawing a line from point (x1,y1) to point (x2,y2)
-	int x1 = 0;
-	int y1 = (p.r - x1 * cos(p.t * M_PI / 180)) / sin(p.t * M_PI / 180);
-	int x2 = width - 1;
-	int y2 = (p.r - x2 * cos(p.t * M_PI / 180)) / sin(p.t * M_PI / 180);
-	line(img, Point(x1, x2), Point(x2, y2), CvScalar(255, 0, 0, 0), 1, 8, 0);
-}
-
-void drawLines(double *H, Mat img)
-{
-	const int minVotes = 30;
-	double diag = sqrt(height * height + width * width);
-	for (int t = 0 ; t < 360; t++) {
-		//priority_queue <peak> peaks;
-		for (int r = 0; r < 10; r++) {
-			if (H[r * 360 + t] > 100) {
-				double a = cos(t * M_PI / 180), b = sin(t * M_PI / 180);
-				double x0 = a*r, y0 = b*r;
-				Point pt1, pt2;
-				pt1.x = cvRound(x0 + 1000 * (-b));
-				pt1.y = cvRound(y0 + 1000 * (a));
-				pt2.x = cvRound(x0 - 1000 * (-b));
-				pt2.y = cvRound(y0 - 1000 * (a));
-				line(img, pt1, pt2, Scalar(255, 255, 255), 1, CV_AA);
-			}
-
-
-
-		/*	if (H[r * 360 + t] >= minVotes) {
-				peak p;
-				p.t = t;
-				p.r = r;
-				p.h = H[r * 360 + t];
-				peaks.push(p);
-			}
-		}
-		peak current, next;
-		while (peaks.size() >= 2) {
-			current = peaks.top();
-			peaks.pop();
-			next = peaks.top();
-			//if (equals(current, next)) {
-				drawLine(current, img);
-				//drawLine(next, img);
-			//}*/
-		}
-	}
-	imshow("hough", img);
-}
-
-void hough(Mat src) {
-	double diag = sqrt(height * height + width * width);
-	const int hSize = 360 * diag;
-	double *H = new double[hSize];
-	memset(H, 0, hSize);
-	for (int i = height/2; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-			if (src.at<uchar>(i, j) == 255) {
-				computeHough(j, i, H);
-			}
-		}
-	}
-	drawLines(H, src);
 }
 
 boolean isInLeftInterval(double theta) {
@@ -581,58 +309,74 @@ boolean isInRightInterval(double theta) {
 	return false;
 }
 
-void drawFoundLines(Vec2f lineExt, Vec2f lineInt, Mat img, boolean isLeft) {
+vector<Point> drawFoundLines(Vec2f lineExt, Vec2f lineInt, Mat img, boolean isLeft) {
 	Point pt1Int, pt2Int, pt1Ext, pt2Ext;
 	double rhoInt = lineInt[0];
 	double rhoExt = lineExt[0];
 	double aInt = cos(lineInt[1]), bInt = sin(lineInt[1]);
 	double aExt = cos(lineExt[1]), bExt = sin(lineExt[1]);
-	if (isLeft) {
-		pt1Int.x = 0;
-		pt1Ext.x = 0;
-	}
-	else {
-		pt1Int.x = width - 1;
-		pt1Ext.x = width - 1;
-	}
-	// interior line
-	pt1Int.y = cvRound((rhoInt - pt1Int.x * aInt) / bInt);
-	//pt2Int.x = cvRound(width / 2);
-	//pt2Int.y = cvRound((rhoInt - pt2Int.x * aInt) / bInt);
-	pt2Int.y = height / 2;
-	pt2Int.x = cvRound((rhoInt - pt2Int.y * bInt) / aInt);
-	// exterior line
-	pt1Ext.y = cvRound((rhoExt - pt1Ext.x * aExt) / bExt);
-	//pt2Ext.x = cvRound(width / 2);
-	//pt2Ext.y = cvRound((rhoExt - pt2Ext.x * aExt) / bExt);
-	pt2Ext.y = height / 2;
-	pt2Ext.x = cvRound((rhoExt - pt2Ext.y * bExt) / aExt);
+	double x0Int = aInt*rhoInt, y0Int = bInt*rhoInt;
+	pt1Int.x = cvRound(x0Int + 1000 * (-bInt));
+	pt1Int.y = cvRound(y0Int + 1000 * (aInt));
+	pt2Int.x = cvRound(x0Int - 1000 * (-bInt));
+	pt2Int.y = cvRound(y0Int - 1000 * (aInt));
+
+	double x0Ext = aExt*rhoExt, y0Ext = bExt*rhoExt;
+	pt1Ext.x = cvRound(x0Ext + 1000 * (-bExt));
+	pt1Ext.y = cvRound(y0Ext + 1000 * (aExt));
+	pt2Ext.x = cvRound(x0Ext - 1000 * (-bExt));
+	pt2Ext.y = cvRound(y0Ext - 1000 * (aExt));
+
+	Point p1, p2;
+	p1.x = pt1Int.x + (pt1Ext.x - pt1Int.x) / 2;
+	p1.y = pt1Int.y + (pt1Ext.y - pt1Int.y) / 2;
+	p2.x = pt2Int.x + (pt2Ext.x - pt2Int.x) / 2;
+	p2.y = pt2Int.y + (pt2Ext.y - pt2Int.y) / 2;
 
 	vector<Point> points;
-	if (pt1Int.y < pt1Ext.y) {
-		Point aux = pt1Int;
-		pt1Int = pt1Ext;
-		pt1Ext = aux;
+	if (isLeft) {
+		points.push_back(pt1Int);
+		points.push_back(pt1Ext);
 	}
-	points.push_back(pt1Int);
-	if (isLeft && pt2Int.x < pt2Ext.x) {
-		Point aux = pt2Int;
-		pt2Int = pt2Ext;
-		pt2Ext = aux;
+	else {
+		points.push_back(pt2Int);
+		points.push_back(pt2Ext);
 	}
-	if (!isLeft && pt2Int.x > pt2Ext.x) {
-		Point aux = pt2Int;
-		pt2Int = pt2Ext;
-		pt2Ext = aux;
-	}
-	points.push_back(pt2Int);
-	points.push_back(pt2Ext);
-	points.push_back(pt1Ext);
-	polylines(img, points, true, Scalar(255, 255, 255), 2, CV_AA);
+	points.push_back(p1);
+	points.push_back(p2);
+	//polylines(img, points, true, Scalar(255, 255, 255), 2, CV_AA);
+	//line(img, pt1Ext, pt2Ext, Scalar(255, 255, 255), 2, CV_AA);
+	return points;
+}
+
+vector<double> equationParam(Point p1, Point p2) {
+	double a, b, c;
+	a = p1.y - p2.y;
+	b = p2.x - p1.x;
+	c = p1.x * p2.y - p2.x * p1.y;
+	vector<double> parameters;
+	parameters.push_back(a);
+	parameters.push_back(b);
+	parameters.push_back(c);
+	return parameters;
+}
+
+Point findIntersectionPoint(Point p1Line1, Point p2Line1, Point p1Line2, Point p2Line2) {
+	vector<double> paramLeft, paramRight;
+	paramLeft = equationParam(p1Line1, p2Line1);
+	paramRight = equationParam(p1Line2, p2Line2);
+	double al = paramLeft[0], bl = paramLeft[1], cl = paramLeft[2];
+	double ar = paramRight[0], br = paramRight[1], cr = paramRight[2];
+
+	Point p;
+	p.y = (ar * cl - al * cr) / (al * br - ar * bl);
+	p.x = (-cl - bl * p.y) / al;
+	return p;
 }
 
 void normalHough(Mat mat, Mat src) {
 	vector<Vec2f> lines;
+	//empiric
 	HoughLines(mat, lines, 1, M_PI / 180, 100, 0, 0);
 	Vec2f leftLineExt, leftLineInt, rightLineInt, rightLineExt;
 	leftLineExt[1] = M_PI / 2;
@@ -646,6 +390,11 @@ void normalHough(Mat mat, Mat src) {
 			Point pt1, pt2;
 			double a = cos(theta), b = sin(theta);
 			double x0 = a*rho, y0 = b*rho;
+			pt1.x = cvRound(x0 + 1000 * (-b));
+			pt1.y = cvRound(y0 + 1000 * (a));
+			pt2.x = cvRound(x0 - 1000 * (-b));
+			pt2.y = cvRound(y0 - 1000 * (a));
+			line(mat, pt1, pt2, Scalar(255, 255, 255), 1, LINE_AA);
 			if (isInLeftInterval(theta)) {
 				if (theta < leftLineExt[1]) {
 					leftLineExt = lines[i];
@@ -664,28 +413,86 @@ void normalHough(Mat mat, Mat src) {
 			}
 		}
 	}
+	vector<Point> pointsLeft, pointsRight;
+	Point p1Left, p2Left, p1Right, p2Right;
+	pointsLeft = drawFoundLines(leftLineExt, leftLineInt, src, true);
+	pointsRight = drawFoundLines(rightLineExt, rightLineInt, src, false);
 
-	drawFoundLines(leftLineExt, leftLineInt, mat, true);
-	drawFoundLines(rightLineExt, rightLineInt, mat, false);
+	Point intersectionPoint = findIntersectionPoint(pointsLeft[2], pointsLeft[3], pointsRight[2], pointsRight[3]);
+	
+	vector<Point> pointsLeftToDraw{pointsLeft[0], pointsLeft[1], intersectionPoint};
+	//polylines(src, pointsLeftToDraw, true, Scalar(255, 255, 255), 2, CV_AA);
 
+	vector<Point> pointsRightToDraw{pointsRight[0], pointsRight[1], intersectionPoint};
+	//polylines(src, pointsRightToDraw, true, Scalar(255, 255, 255), 2, CV_AA);
 
 	imshow("hough", mat);
+	//imshow("detection", src);
+	stretch(src, pointsLeft[0], pointsRight[0], intersectionPoint);
+}
+
+void stretch(Mat src, Point pLeft, Point pRight, Point pIntersection) {
+	double yDif;
+	if (pLeft.y > height) {
+		yDif = abs(height - pIntersection.y);
+	}
+	else {
+		yDif = abs(pLeft.y - pIntersection.y);
+	}
+	Point p1New, p2New;
+	p1New.y = pIntersection.y + 2;//+ yDif / 5;
+	p2New.y = pIntersection.y + 2; //yDif / 5;
+	p1New.x = 0;
+	p2New.x = width - 1;
+	Point pIntersectionLeft = findIntersectionPoint(pLeft, pIntersection, p1New, p2New);
+	Point pIntersectionRight = findIntersectionPoint(pRight, pIntersection, p1New, p2New);
+	vector<Point> pointsToStretch {pLeft, pIntersectionLeft, pIntersectionRight, pRight};
+	Mat aux = src.clone();
+	polylines(aux, pointsToStretch, true, Scalar(255, 255, 255), 2, CV_AA);
+	imshow("trapez", aux);
+
+	Mat dst = src.clone();
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			dst.at<uchar>(i, j) = 0;
+		}
+	}
+
+
+	int yMin = min(pIntersectionLeft.y, pIntersectionRight.y);
+	int yMax = max(pLeft.y, pRight.y);
+	yMax = min(yMax, height - 1);
+	for (int y = yMin; y <= yMax; y++) {
+		double xl = findIntersectionPoint(pLeft, pIntersectionLeft, Point{ 0, y }, Point{ width - 1, y }).x;
+		double xr = findIntersectionPoint(pRight, pIntersectionRight, Point{ 0, y }, Point{ width - 1, y }).x;
+		for (int x = 0; x < width; x++) {
+			int correspondingX = x * (xr - xl) / (width - 1) + xl;
+			if (correspondingX < 0 || correspondingX > width - 1) {
+				dst.at<uchar>(y, x) = 0;
+			}
+			else {
+				dst.at<uchar>(y, x) = src.at<uchar>(y, correspondingX);
+			}
+		}
+	}
+	imshow("strech", dst);
 }
 
 int main()
 {
 	system("cls");
 	destroyAllWindows();
-	Mat src = openImage();
-	Mat contur = canny(src);
-	//Mat inverse = ipm(contours);
-	//Mat borders = borderTracing(contur);
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat src = openImage(fname);
+		Mat contur = canny(src);
 
-	showIntMat("Input image", src);
-	Mat canny_uchar = showIntMat("Canny", contur);
+		Mat src_uchar = showIntMat("Input image", src);
+		Mat canny_uchar = showIntMat("Canny", contur);
 
-	normalHough(canny_uchar, src);
-	waitKey();
-		
+		normalHough(canny_uchar, src_uchar);
+		waitKey();
+	}
 	return 0;
 }
