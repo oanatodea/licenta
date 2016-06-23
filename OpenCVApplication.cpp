@@ -11,11 +11,12 @@ using namespace cv;
 using namespace std;
 
 int height, width;
+int ignoreMargin;
 
 bool isInRange(int i, int j);
 int dirCuantification(double value);
 //Mat borderTracing(Mat src);
-void stretch(Mat src, Point pLeft, Point pRight, Point pIntersection);
+Mat stretch(Mat src, Point pLeft, Point pRight, Point pIntersection);
 
 Mat openImage(char* fname) {
 	//char fname[MAX_PATH] = "C:\\Users\\Oana\\Desktop\\licenta\\srcgray.png";
@@ -45,9 +46,9 @@ Mat openImage(char* fname) {
 
 Mat convolution(Mat src, std::vector< std::vector<double>> filter, std::vector<double> offsetI, std::vector<double> offsetJ) {
 	Mat dst = Mat(height, width, DataType<int>::type);
-	int ignoreSize = filter.size() / 2;
-	for (int i = ignoreSize; i < height - ignoreSize; i++) {
-		for (int j = ignoreSize; j < width - ignoreSize; j++) {
+	ignoreMargin = max(ignoreMargin, filter.size() / 2);
+	for (int i = ignoreMargin; i < height - ignoreMargin; i++) {
+		for (int j = ignoreMargin; j < width - ignoreMargin; j++) {
 			double newValue = 0;
 			for (int indexIFilter = 0; indexIFilter < offsetI.size(); indexIFilter++) {
 				for (int indexJFilter = 0; indexJFilter < offsetJ.size(); indexJFilter++) {
@@ -59,12 +60,6 @@ Mat convolution(Mat src, std::vector< std::vector<double>> filter, std::vector<d
 					}
 				}
 			}
-	//		if (newValue > 255) {
-		//		newValue = 255;
-			//}
-			//if (newValue < 0) {
-				//newValue = 0;
-			//}
 			dst.at<int>(i, j) = newValue;
 		}
 	}
@@ -73,6 +68,12 @@ Mat convolution(Mat src, std::vector< std::vector<double>> filter, std::vector<d
 
 Mat gaussFiltration(Mat src) {
 	std::vector< std::vector<double>> filter = { { 1.0 / 16, 1.0 / 8, 1.0 / 16 }, { 1.0 / 8, 1.0 / 4, 1.0 / 8 }, { 1.0 / 16, 1.0 / 8, 1.0 / 16 } };
+	/*vector< std::vector<double>> filter = { 
+	{ 1.0 / 273, 4.0 / 273, 7.0 / 273, 4.0 / 273, 1.0 / 273},
+	{ 4.0 / 273, 16.0 / 273, 26.0 / 273, 16.0 / 273, 4.0 / 273 },
+	{ 7.0 / 273, 26.0 / 273, 41.0 / 273, 26.0 / 273, 7.0 / 273 },
+	{ 4.0 / 273, 16.0 / 273, 26.0 / 273, 16.0 / 273, 4.0 / 273 },
+	{ 1.0 / 273, 4.0 / 273, 7.0 / 273, 4.0 / 273, 1.0 / 273 } };*/
 	std::vector<double> offsetI = { -1, 0, 1 };
 	std::vector<double> offsetJ = { -1, 0, 1 };
 	return convolution(src, filter, offsetI, offsetJ);
@@ -90,8 +91,8 @@ void gradientModuleAndDirection(Mat src, Mat* mod, Mat* dir) {
 	Mat convX = convolution(src, filterX, offsetI, offsetJ);
 	Mat convY = convolution(src, filterY, offsetI, offsetJ);
 
-	for (int i = 1; i < height-1; i++) {
-		for (int j = 1; j < width-1; j++) {
+	for (int i = ignoreMargin; i < height - ignoreMargin; i++) {
+		for (int j = ignoreMargin; j < width - ignoreMargin; j++) {
 			double moduleValue = sqrt(pow(convX.at<int>(i, j), 2.0) + pow(convY.at<int>(i, j), 2.0));
 			(*mod).at<int>(i, j) = moduleValue;
 			double dirValue = std::atan2(convY.at<int>(i, j), convX.at<int>(i, j)) * 180.0 / M_PI;
@@ -123,8 +124,8 @@ Mat nonMaxSuprimation(Mat module, Mat dir) {
 	Mat dst = module.clone();
 	std::vector<double> offsetI = { 1, -1, 0, 1 };
 	std::vector<double> offsetJ = { 0, 1, 1, 1 };
-	for (int i = 1; i < height-1; i++) {
-		for (int j = 1; j < width-1; j++) {
+	for (int i = ignoreMargin; i < height - ignoreMargin; i++) {
+		for (int j = ignoreMargin; j < width - ignoreMargin; j++) {
 			int cuantifiedDirection = dir.at<int>(i, j);
 			if (cuantifiedDirection == -1) {
 				printf("Error ! dir = %d\n", dir.at<int>(i, j));
@@ -154,13 +155,13 @@ Mat nonMaxSuprimation(Mat module, Mat dir) {
 int binarizationThreshold(Mat module) {
 	const double p = 0.01;
 	int *hist = new int[256]();
-	for (int i = 1; i < height-1; i++) {
-		for (int j = 1; j < width-1; j++) {
+	for (int i = ignoreMargin; i < height - ignoreMargin; i++) {
+		for (int j = ignoreMargin; j < width - ignoreMargin; j++) {
 			int normalizedValue = module.at<int>(i, j) / (4 * sqrt(2));
 			hist[normalizedValue]++;
 		}
 	}
-	int nrNonMuchii = (1 - p) * ((width-2) * (height-2) - hist[0]);
+	int nrNonMuchii = (1 - p) * ((width - 2 * ignoreMargin) * (height - 2 * ignoreMargin) - hist[0]);
 	int adaptiveThreshold = 0;
 	int sum = 0;
 	for (int i = 1; i <= 255; i++) {
@@ -374,7 +375,7 @@ Point findIntersectionPoint(Point p1Line1, Point p2Line1, Point p1Line2, Point p
 	return p;
 }
 
-void normalHough(Mat mat, Mat src) {
+Mat normalHough(Mat mat, Mat src) {
 	vector<Vec2f> lines;
 	//empiric
 	HoughLines(mat, lines, 1, M_PI / 180, 100, 0, 0);
@@ -428,10 +429,11 @@ void normalHough(Mat mat, Mat src) {
 
 	imshow("hough", mat);
 	//imshow("detection", src);
-	stretch(src, pointsLeft[0], pointsRight[0], intersectionPoint);
+	Mat stretched = stretch(src, pointsLeft[0], pointsRight[0], intersectionPoint);
+	return stretched;
 }
 
-void stretch(Mat src, Point pLeft, Point pRight, Point pIntersection) {
+Mat stretch(Mat src, Point pLeft, Point pRight, Point pIntersection) {
 	double yDif;
 	if (pLeft.y > height) {
 		yDif = abs(height - pIntersection.y);
@@ -440,42 +442,263 @@ void stretch(Mat src, Point pLeft, Point pRight, Point pIntersection) {
 		yDif = abs(pLeft.y - pIntersection.y);
 	}
 	Point p1New, p2New;
-	p1New.y = pIntersection.y + 2;//+ yDif / 5;
-	p2New.y = pIntersection.y + 2; //yDif / 5;
+	p1New.y = pIntersection.y + yDif / 5;
+	p2New.y = pIntersection.y + yDif / 5;
 	p1New.x = 0;
 	p2New.x = width - 1;
 	Point pIntersectionLeft = findIntersectionPoint(pLeft, pIntersection, p1New, p2New);
 	Point pIntersectionRight = findIntersectionPoint(pRight, pIntersection, p1New, p2New);
-	vector<Point> pointsToStretch {pLeft, pIntersectionLeft, pIntersectionRight, pRight};
-	Mat aux = src.clone();
-	polylines(aux, pointsToStretch, true, Scalar(255, 255, 255), 2, CV_AA);
-	imshow("trapez", aux);
+	vector<Point2f> pointsToStretch{ pLeft, pIntersectionLeft, pIntersectionRight, pRight };
 
+	vector<Point2f> dstPoints;
+	dstPoints.push_back(Point2f(0, height));
+	dstPoints.push_back(Point2f(0, 0));
+	dstPoints.push_back(Point2f(width, 0));
+	dstPoints.push_back(Point2f(width, height));
+
+	Mat dst;
+	IPM ipm(src.size(), src.size(), pointsToStretch, dstPoints);
+	ipm.applyHomography(src, dst);
+	imshow("stretch", dst);
+	return dst;
+}
+
+Mat binarization(Mat src) {
 	Mat dst = src.clone();
+	int threshold = 200;
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width;  j++) {
+			if (src.at<uchar>(i, j) > threshold) {
+				dst.at<uchar>(i, j) = 255;
+			}
+			else {
+				dst.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+	return dst;
+}
+
+
+Mat dilation(Mat src, vector<int> convMatrixI, vector<int> convMatrixJ) {
+	Mat dst = src.clone();
+	int i, j, convIndexI, convIndexJ;
+	for (i = 0; i < height; i++) {
+		for (j = 0; j < width; j++) {
+			if (src.at<uchar>(i, j) == 255) {
+				for (convIndexI = 0; convIndexI < convMatrixI.size(); convIndexI++) {
+					for (convIndexJ = 0; convIndexJ < convMatrixJ.size(); convIndexJ++) {
+						int newI = i + convMatrixI[convIndexI];
+						int newJ = j + convMatrixJ[convIndexJ];
+						if (isInRange(newI, newJ)) {
+							dst.at<uchar>(newI, newJ) = 255;
+						}
+					}
+				}
+			}
+		}
+	}
+	return dst;
+}
+
+Mat erosion(Mat src, vector<int> convMatrixI, vector<int> convMatrixJ) {
+	Mat dst = src.clone();
+	int i, j, convIndexI, convIndexJ;
+	for (i = 0; i < height; i++) {
+		for (j = 0; j < width; j++) {
+			if (src.at<uchar>(i, j) == 255) {
+				bool hasBlackNeighbours = false;
+				for (convIndexI = 0; convIndexI < convMatrixI.size() && !hasBlackNeighbours; convIndexI++) {
+					for (convIndexJ = 0; convIndexJ < convMatrixJ.size() && !hasBlackNeighbours; convIndexJ++) {
+						int newI = i + convMatrixI[convIndexI];
+						int newJ = j + convMatrixJ[convIndexJ];
+						if (isInRange(newI, newJ)) {
+							if (src.at<uchar>(newI, newJ) == 0) {
+								hasBlackNeighbours = true;
+							}
+						}
+					}
+				}
+				if (hasBlackNeighbours) {
+					dst.at<uchar>(i, j) = 0;
+				}
+			}
+		}
+	}
+	return dst;
+}
+
+Mat opening(Mat src, const int convolutionSize) {
+	vector<int> convMatrixI;
+	vector<int> convMatrixJ;
+	for (int i = -convolutionSize / 2; i <= convolutionSize / 2; i++) {
+		convMatrixI.push_back(i);
+		convMatrixJ.push_back(i);
+	}
+	src = erosion(src, convMatrixI, convMatrixJ);
+	src = dilation(src, convMatrixI, convMatrixJ);
+	//imshow("open", src);
+	return src;
+}
+
+Mat closing(Mat src, const int convolutionSize) {
+	vector<int> convMatrixI;
+	vector<int> convMatrixJ;
+	for (int i = -convolutionSize / 2; i <= convolutionSize / 2; i++) {
+		convMatrixI.push_back(i);
+		convMatrixJ.push_back(i);
+	}
+	src = dilation(src, convMatrixI, convMatrixJ);
+	src = erosion(src, convMatrixI, convMatrixJ);
+	//imshow("close", src);
+	return src;
+}
+
+Mat etichetare(Mat src, Mat opened) {
+	Mat dst = src.clone();
+	int eticheta = 255;
+	vector<int> offsetI = { -1, 0, 1 };
+	vector<int> offsetJ = { -1, 0, 1 };
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width; j++) {
 			dst.at<uchar>(i, j) = 0;
 		}
 	}
-
-
-	int yMin = min(pIntersectionLeft.y, pIntersectionRight.y);
-	int yMax = max(pLeft.y, pRight.y);
-	yMax = min(yMax, height - 1);
-	for (int y = yMin; y <= yMax; y++) {
-		double xl = findIntersectionPoint(pLeft, pIntersectionLeft, Point{ 0, y }, Point{ width - 1, y }).x;
-		double xr = findIntersectionPoint(pRight, pIntersectionRight, Point{ 0, y }, Point{ width - 1, y }).x;
-		for (int x = 0; x < width; x++) {
-			int correspondingX = x * (xr - xl) / (width - 1) + xl;
-			if (correspondingX < 0 || correspondingX > width - 1) {
-				dst.at<uchar>(y, x) = 0;
-			}
-			else {
-				dst.at<uchar>(y, x) = src.at<uchar>(y, correspondingX);
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			if (src.at<uchar>(i, j) == 255 && opened.at<uchar>(i,j) == 255 && dst.at<uchar>(i,j) == 0) {
+				//eticheta--;
+				deque<Point> points;
+				Point p;
+				p.x = j;
+				p.y = i;
+				points.push_back(p);
+				while (!points.empty()) {
+					Point p = points.front();
+					points.pop_front();
+					dst.at<uchar>(p.y, p.x) = eticheta;
+					for (int indexI = 0; indexI < offsetI.size(); indexI++) {
+						for (int indexJ = 0; indexJ < offsetJ.size(); indexJ++) {
+							// todo where is vector[] change with at()
+							// todo point*
+							int newI = p.y + offsetI.at(indexI);
+							int newJ = p.x + offsetJ.at(indexJ);
+							if (isInRange(newI, newJ)) {
+								if (src.at<uchar>(newI, newJ) == 255 && dst.at<uchar>(newI, newJ) == 0) {
+									Point p;
+									p.x = newJ;
+									p.y = newI;
+									points.push_back(p);
+									dst.at<uchar>(p.y, p.x) = eticheta;
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 	}
-	imshow("strech", dst);
+	imshow("etichetare", dst);
+	return dst;
+}
+
+int findZebra(Mat src) {
+	vector<int> whitePixels;
+	for (int i = 0; i < height; i++) {
+		int sum = 0;
+		for (int j = 0; j < width; j++) {
+			if (src.at<uchar>(i, j) == 255) {
+				sum++;
+			}
+		}
+		whitePixels.push_back(sum);
+	}
+	int noOfLinesFound = 0;
+	int noOfWhitePixels = 0;
+	int whitePixelsError = 10;
+	const int threasholdForZebra = width / 3;
+	const int minLines = 3;
+	for (int i = 0; i < whitePixels.size(); i++) {
+		if (whitePixels.at(i) >= threasholdForZebra) {
+			if (noOfLinesFound == 0) {
+				noOfWhitePixels = whitePixels.at(i);
+				noOfLinesFound++;
+			}
+			else {
+				if (abs(whitePixels.at(i) - noOfWhitePixels) <= whitePixelsError) {
+					noOfLinesFound++;
+				}
+				else {
+					noOfLinesFound = 0;
+					noOfWhitePixels = 0;
+				}
+			}
+			if (noOfLinesFound >= minLines) {
+				return i - noOfLinesFound + 1;
+			}
+		}
+		else {
+			if (noOfLinesFound != 0) {
+				noOfLinesFound = 0;
+				noOfWhitePixels = 0;
+			}
+		}
+	}
+	return -1;
+}
+
+Mat otherMarkingsElimination(Mat src) {
+	Mat dst = src.clone();
+	vector<int> offsetI = { -1, 0, 1 };
+	vector<int> offsetJ = { -1, 0, 1 };
+	int lineZebra = findZebra(src);
+	if (lineZebra != -1) {
+		for (int j = 0; j < width; j++) {
+			if (dst.at<uchar>(lineZebra,j) == 255) {
+				deque<Point> points;
+				Point p;
+				p.x = j;
+				p.y = lineZebra;
+				points.push_back(p);
+				while (!points.empty()) {
+					Point p = points.front();
+					points.pop_front();
+					dst.at<uchar>(p.y, p.x) = 0;
+					for (int indexI = 0; indexI < offsetI.size(); indexI++) {
+						for (int indexJ = 0; indexJ < offsetJ.size(); indexJ++) {
+							int newI = p.y + offsetI.at(indexI);
+							int newJ = p.x + offsetJ.at(indexJ);
+							if (isInRange(newI, newJ)) {
+								if (dst.at<uchar>(newI, newJ) == 255) {
+									Point p;
+									p.x = newJ;
+									p.y = newI;
+									points.push_back(p);
+									dst.at<uchar>(p.y, p.x) = 0;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	imshow("without zebra", dst);
+	return dst;
+}
+
+Mat harris(Mat src, Mat grey_image) {
+	Mat dst, dst_norm, dst_norm_scaled;
+	dst = src.clone();
+	vector<Point> corners;
+	goodFeaturesToTrack(dst, corners, 20, 0.1, 3, noArray(), 5, true, 0.04);
+	while(!corners.empty()) {
+		Point p = corners.back();
+		corners.pop_back();
+		circle(grey_image, p, 5, Scalar(0), 2, 8, 0);
+	}
+	imshow("harris", grey_image);
+	return dst;
 }
 
 int main()
@@ -491,7 +714,13 @@ int main()
 		Mat src_uchar = showIntMat("Input image", src);
 		Mat canny_uchar = showIntMat("Canny", contur);
 
-		normalHough(canny_uchar, src_uchar);
+		Mat stretched = normalHough(canny_uchar, src_uchar);
+		Mat binarImage = binarization(stretched);
+		Mat closed = closing(binarImage, 3);
+		Mat opened = opening(closed, 5);
+		Mat etichetata = etichetare(closed, opened);
+		Mat withoutZebra = otherMarkingsElimination(etichetata);
+		harris(withoutZebra, stretched);
 		waitKey();
 	}
 	return 0;
