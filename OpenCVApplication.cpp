@@ -13,23 +13,29 @@ using namespace std;
 int height, width;
 int ignoreMargin;
 
+Mat colorSrc;
+enum ArrowType {RIGHT, LEFT, UP, DOWN};
+
 bool isInRange(int i, int j);
 int dirCuantification(double value);
-//Mat borderTracing(Mat src);
 Mat stretch(Mat src, Point pLeft, Point pRight, Point pIntersection);
+void classification(vector<Point> corners, Mat img);
+void cornersClasification(vector<pair<Point, int>> cornersWithLabels, Mat img);
+Mat convolution(Mat src, std::vector< std::vector<double>> filter, std::vector<double> offsetI, std::vector<double> offsetJ);
+Mat closing(Mat src, const int convolutionSize);
 
 Mat openImage(char* fname) {
 	//char fname[MAX_PATH] = "C:\\Users\\Oana\\Desktop\\licenta\\srcgray.png";
 	//while (openFileDlg(fname))
 	//{
 	//openFileDlg(fname);
-	Mat src, graySrc;
-	src = imread(fname);
+	Mat graySrc;
+	colorSrc = imread(fname);
 
-	if (src.channels() == 3)
-		cvtColor(src, graySrc, CV_BGR2GRAY);
+	if (colorSrc.channels() == 3)
+		cvtColor(colorSrc, graySrc, CV_BGR2GRAY);
 	else
-		src.copyTo(graySrc);
+		colorSrc.copyTo(graySrc);
 
 	width = graySrc.cols;
 	height = graySrc.rows;
@@ -284,16 +290,6 @@ Mat showIntMat(String message, Mat src) {
 	return dst;
 }
 
-void computeHough(int x, int y, double *H) {
-	double diag = sqrt(height * height + width * width);
-	for (int teta = 0; teta < 360; teta++){
-		int ro = x * cos(teta * M_PI / 180.0) + y * sin(teta * M_PI / 180.0);
-		if (ro > 0 && ro < diag){
-			H[ro * 360 + teta]++;
-		}
-	}
-}
-
 boolean isInLeftInterval(double theta) {
 	double theta_grades = theta * 180 / M_PI;
 	if (theta_grades < 60 && theta_grades > 30) {
@@ -375,65 +371,48 @@ Point findIntersectionPoint(Point p1Line1, Point p2Line1, Point p1Line2, Point p
 	return p;
 }
 
-Mat normalHough(Mat mat, Mat src) {
-	vector<Vec2f> lines;
-	//empiric
-	HoughLines(mat, lines, 1, M_PI / 180, 100, 0, 0);
-	Vec2f leftLineExt, leftLineInt, rightLineInt, rightLineExt;
-	leftLineExt[1] = M_PI / 2;
-	leftLineInt[1] = 0;
-	rightLineExt[1] = M_PI / 2;
-	rightLineInt[1] = M_PI;
-	for (size_t i = 0; i < lines.size(); i++)
-	{
-		float rho = lines[i][0], theta = lines[i][1];
-		if (isInLeftInterval(theta) || isInRightInterval(theta)) {
-			Point pt1, pt2;
-			double a = cos(theta), b = sin(theta);
-			double x0 = a*rho, y0 = b*rho;
-			pt1.x = cvRound(x0 + 1000 * (-b));
-			pt1.y = cvRound(y0 + 1000 * (a));
-			pt2.x = cvRound(x0 - 1000 * (-b));
-			pt2.y = cvRound(y0 - 1000 * (a));
-			line(mat, pt1, pt2, Scalar(255, 255, 255), 1, LINE_AA);
-			if (isInLeftInterval(theta)) {
-				if (theta < leftLineExt[1]) {
-					leftLineExt = lines[i];
-				}
-				if (theta > leftLineInt[1]) {
-					leftLineInt = lines[i];
-				}
-			}
-			if (isInRightInterval(theta)) {
-				if (theta < rightLineInt[1]) {
-					rightLineInt = lines[i];
-				}
-				if (theta > rightLineExt[1]) {
-					rightLineExt = lines[i];
-				}
-			}
-		}
-	}
-	vector<Point> pointsLeft, pointsRight;
-	Point p1Left, p2Left, p1Right, p2Right;
-	pointsLeft = drawFoundLines(leftLineExt, leftLineInt, src, true);
-	pointsRight = drawFoundLines(rightLineExt, rightLineInt, src, false);
-
-	Point intersectionPoint = findIntersectionPoint(pointsLeft[2], pointsLeft[3], pointsRight[2], pointsRight[3]);
-	
-	vector<Point> pointsLeftToDraw{pointsLeft[0], pointsLeft[1], intersectionPoint};
-	//polylines(src, pointsLeftToDraw, true, Scalar(255, 255, 255), 2, CV_AA);
-
-	vector<Point> pointsRightToDraw{pointsRight[0], pointsRight[1], intersectionPoint};
-	//polylines(src, pointsRightToDraw, true, Scalar(255, 255, 255), 2, CV_AA);
-
-	imshow("hough", mat);
-	//imshow("detection", src);
-	Mat stretched = stretch(src, pointsLeft[0], pointsRight[0], intersectionPoint);
-	return stretched;
+vector<Point> findPointsForCoord(Vec2f coord) {
+	Point p1, p2;
+	double rho = coord[0], theta = coord[1];
+	double a = cos(theta), b = sin(theta);
+	double x0 = a*rho, y0 = b*rho;
+	p1.x = cvRound(x0 + 1000 * (-b));
+	p1.y = cvRound(y0 + 1000 * (a));
+	p2.x = cvRound(x0 - 1000 * (-b));
+	p2.y = cvRound(y0 - 1000 * (a));
+	return vector < Point > {p1, p2};
 }
 
-Mat stretch(Mat src, Point pLeft, Point pRight, Point pIntersection) {
+vector<Point> findLane(Vec2f leftCoord, Vec2f rightCoord) {
+	vector<Point> pointsLeft, pointsRight;
+	double diag = sqrt(width * width + height * height);
+	if (leftCoord[0] == NULL && rightCoord[0] == NULL) {
+		pointsLeft = vector < Point > {Point(0, height), Point(width / 2 - 50, height - 200)};
+		pointsRight = vector < Point > {Point(width / 2 + 30, height - 200), Point(width, height)};
+	}
+	else {
+		if (leftCoord[0] == NULL) {
+			// only left line not found
+			leftCoord[1] = M_PI - rightCoord[1];
+			leftCoord[0] = 0;
+		}
+		else {
+			if (rightCoord[0] == NULL) {
+				// only right line not found
+				rightCoord[1] = M_PI - leftCoord[1];
+				rightCoord[0] = 0;
+			}
+		}
+		pointsLeft = findPointsForCoord(leftCoord);
+		pointsRight = findPointsForCoord(rightCoord);
+	}
+	Point intersectionPoint = findIntersectionPoint(pointsLeft[0], pointsLeft[1], pointsRight[0], pointsRight[1]);
+	return vector < Point > {pointsLeft[0], pointsRight[1], intersectionPoint};
+}
+
+vector<Point2f> findROI(vector<Vec2f> lanesCoord) {
+	vector<Point> lanePoints = findLane(lanesCoord[0], lanesCoord[1]);
+	Point pLeft = lanePoints[0], pRight = lanePoints[1], pIntersection = lanePoints[2];
 	double yDif;
 	if (pLeft.y > height) {
 		yDif = abs(height - pIntersection.y);
@@ -448,18 +427,135 @@ Mat stretch(Mat src, Point pLeft, Point pRight, Point pIntersection) {
 	p2New.x = width - 1;
 	Point pIntersectionLeft = findIntersectionPoint(pLeft, pIntersection, p1New, p2New);
 	Point pIntersectionRight = findIntersectionPoint(pRight, pIntersection, p1New, p2New);
-	vector<Point2f> pointsToStretch{ pLeft, pIntersectionLeft, pIntersectionRight, pRight };
+	return vector<Point2f> { pLeft, pIntersectionLeft, pIntersectionRight, pRight };
+}
 
+
+vector<Vec2f> hough(Mat mat) {
+	vector<Vec2f> lines;
+	//empiric
+	HoughLines(mat, lines, 1, M_PI / 180, 100, 0, 0);
+	Vec2f leftLineExt, rightLineExt;
+	leftLineExt = NULL;
+	rightLineExt = NULL;
+	vector<double> t;
+	
+	for (int i = 0; i < lines.size(); i++)
+	{
+		float rho = lines[i][0], theta = lines[i][1];
+		if (isInLeftInterval(theta) || isInRightInterval(theta)) {
+			Point pt1, pt2;
+			double a = cos(theta), b = sin(theta);
+			double x0 = a*rho, y0 = b*rho;
+			pt1.x = cvRound(x0 + 1000 * (-b));
+			pt1.y = cvRound(y0 + 1000 * (a));
+			pt2.x = cvRound(x0 - 1000 * (-b));
+			pt2.y = cvRound(y0 - 1000 * (a));
+			line(mat, pt1, pt2, Scalar(255, 255, 255), 1, LINE_AA);
+			if (isInLeftInterval(theta)) {
+				if (leftLineExt[0] == NULL || rho < leftLineExt[0] || (rho == leftLineExt[0] && theta < leftLineExt[1])) {//theta < leftLineExt[1] || (theta == leftLineExt[1] && rho < leftLineExt[0])) {
+					leftLineExt = lines[i];
+				}
+			}
+			if (isInRightInterval(theta)) {
+				if (rightLineExt[0] == NULL || theta > rightLineExt[1] || (theta == rightLineExt[1] && rho < rightLineExt[0])) {
+					rightLineExt = lines[i];
+				}
+			}
+		}
+	}
+	imshow("hough", mat);
+	return vector < Vec2f > {leftLineExt, rightLineExt};
+}
+
+
+Point2d applyHomography(Point2d point, Mat H)
+{
+	Point2d ret = Point2d(-1, -1);
+
+	const double u = H.at<double>(0, 0) * point.x + H.at<double>(0, 1) * point.y + H.at<double>(0, 2);
+	const double v = H.at<double>(1, 0) * point.x + H.at<double>(1, 1) * point.y + H.at<double>(1, 2);
+	const double s = H.at<double>(2, 0) * point.x + H.at<double>(2, 1) * point.y + H.at<double>(2, 2);
+	if (s != 0)
+	{
+		ret.x = (u / s);
+		ret.y = (v / s);
+	}
+	return ret;
+}
+
+void createMaps(Mat H, Mat H_inv, Mat& mapX, Mat& mapY, Mat& invMapX, Mat& invMapY) {
+	mapX.create(height, width, CV_32F);
+	mapY.create(height, width, CV_32F);
+	for (int j = 0; j < height; ++j)
+	{
+		float* ptRowX = mapX.ptr<float>(j);
+		float* ptRowY = mapY.ptr<float>(j);
+		for (int i = 0; i < width; ++i)
+		{
+			Point2f pt = applyHomography(Point2f(i, j), H_inv);
+			ptRowX[i] = pt.x;
+			ptRowY[i] = pt.y;
+		}
+	}
+
+	invMapX.create(height, width, CV_32F);
+	invMapY.create(height, width, CV_32F);
+
+	for (int j = 0; j < height; ++j)
+	{
+		float* ptRowX = invMapX.ptr<float>(j);
+		float* ptRowY = invMapY.ptr<float>(j);
+		for (int i = 0; i < width; ++i)
+		{
+			Point2f pt = applyHomography(Point2f(i, j), H);
+			ptRowX[i] = pt.x;
+			ptRowY[i] = pt.y;
+		}
+	}
+}
+
+
+void applyHomography(const Mat inputImg, Mat& dstImg, Mat mapX, Mat mapY)
+{
+	// Generate IPM image from src
+	remap(inputImg, dstImg, mapX, mapY, INTER_LINEAR, BORDER_CONSTANT);
+}
+
+Mat ipm(Mat src, vector<Point2f> pointsROI) {
+	/*double yDif;
+	if (pLeft.y > height) {
+		yDif = abs(height - pIntersection.y);
+	}
+	else {
+		yDif = abs(pLeft.y - pIntersection.y);
+	}
+	Point p1New, p2New;
+	p1New.y = pIntersection.y + yDif / 5;
+	p2New.y = pIntersection.y + yDif / 5;
+	p1New.x = 0;
+	p2New.x = width - 1;
+	Point pIntersectionLeft = findIntersectionPoint(pLeft, pIntersection, p1New, p2New);
+	Point pIntersectionRight = findIntersectionPoint(pRight, pIntersection, p1New, p2New);
+	vector<Point2f> pointsToStretch{ pLeft, pIntersectionLeft, pIntersectionRight, pRight };
+	*/
 	vector<Point2f> dstPoints;
 	dstPoints.push_back(Point2f(0, height));
 	dstPoints.push_back(Point2f(0, 0));
 	dstPoints.push_back(Point2f(width, 0));
 	dstPoints.push_back(Point2f(width, height));
 
-	Mat dst;
-	IPM ipm(src.size(), src.size(), pointsToStretch, dstPoints);
-	ipm.applyHomography(src, dst);
-	imshow("stretch", dst);
+	Mat m_H, m_H_inv;
+	assert(pointsROI.size() == 4 && dstPoints.size() == 4);
+	m_H = getPerspectiveTransform(pointsROI, dstPoints);
+	m_H_inv = m_H.inv();
+
+	Mat mapX, mapY, dst;
+	Mat invMapX, invMapY;
+	createMaps(m_H, m_H_inv, mapX, mapY, invMapX, invMapY);
+
+	applyHomography(src, dst, mapX, mapY);
+
 	return dst;
 }
 
@@ -567,7 +663,7 @@ Mat etichetare(Mat src, Mat opened) {
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width; j++) {
 			if (src.at<uchar>(i, j) == 255 && opened.at<uchar>(i,j) == 255 && dst.at<uchar>(i,j) == 0) {
-				//eticheta--;
+				eticheta--;
 				deque<Point> points;
 				Point p;
 				p.x = j;
@@ -598,16 +694,16 @@ Mat etichetare(Mat src, Mat opened) {
 			}
 		}
 	}
-	imshow("etichetare", dst);
+	//imshow("etichetare", dst);
 	return dst;
 }
 
-int findZebra(Mat src) {
+int transversalMarking(Mat src, int threshold) {
 	vector<int> whitePixels;
 	for (int i = 0; i < height; i++) {
 		int sum = 0;
 		for (int j = 0; j < width; j++) {
-			if (src.at<uchar>(i, j) == 255) {
+			if (src.at<uchar>(i, j) != 0 ) {
 				sum++;
 			}
 		}
@@ -616,10 +712,11 @@ int findZebra(Mat src) {
 	int noOfLinesFound = 0;
 	int noOfWhitePixels = 0;
 	int whitePixelsError = 10;
-	const int threasholdForZebra = width / 3;
+	//const int thresholdForZebra = width / 3;
+	//const int thresholdForLine = 4 * width / 5;
 	const int minLines = 3;
 	for (int i = 0; i < whitePixels.size(); i++) {
-		if (whitePixels.at(i) >= threasholdForZebra) {
+		if (whitePixels.at(i) >= threshold) {
 			if (noOfLinesFound == 0) {
 				noOfWhitePixels = whitePixels.at(i);
 				noOfLinesFound++;
@@ -647,14 +744,14 @@ int findZebra(Mat src) {
 	return -1;
 }
 
-Mat otherMarkingsElimination(Mat src) {
+Mat otherMarkingsElimination(Mat src, int threshold) {
 	Mat dst = src.clone();
 	vector<int> offsetI = { -1, 0, 1 };
 	vector<int> offsetJ = { -1, 0, 1 };
-	int lineZebra = findZebra(src);
+	int lineZebra = transversalMarking(src, threshold);
 	if (lineZebra != -1) {
 		for (int j = 0; j < width; j++) {
-			if (dst.at<uchar>(lineZebra,j) == 255) {
+			if (dst.at<uchar>(lineZebra,j) != 0) {
 				deque<Point> points;
 				Point p;
 				p.x = j;
@@ -669,7 +766,7 @@ Mat otherMarkingsElimination(Mat src) {
 							int newI = p.y + offsetI.at(indexI);
 							int newJ = p.x + offsetJ.at(indexJ);
 							if (isInRange(newI, newJ)) {
-								if (dst.at<uchar>(newI, newJ) == 255) {
+								if (dst.at<uchar>(newI, newJ) != 0) {
 									Point p;
 									p.x = newJ;
 									p.y = newI;
@@ -683,22 +780,212 @@ Mat otherMarkingsElimination(Mat src) {
 			}
 		}
 	}
-	imshow("without zebra", dst);
 	return dst;
 }
 
-Mat harris(Mat src, Mat grey_image) {
-	Mat dst, dst_norm, dst_norm_scaled;
+vector<pair<Point, int>> harris(Mat src, Mat grey_image) {
+	Mat dst;
 	dst = src.clone();
 	vector<Point> corners;
+	vector<pair<Point, int>> cornersWithLabels;
 	goodFeaturesToTrack(dst, corners, 20, 0.1, 3, noArray(), 5, true, 0.04);
 	while(!corners.empty()) {
 		Point p = corners.back();
 		corners.pop_back();
-		circle(grey_image, p, 5, Scalar(0), 2, 8, 0);
+		int label = src.at<uchar>(p.y, p.x);
+		if (label == 0) {
+			bool labelFound = false;
+			// find label through neighbours
+			for (int i = -2; i <= 2 && !labelFound; i++) {
+				for (int j = -2; j <= 2 && !labelFound; j++) {
+					int newI = p.y + i;
+					int newJ = p.x + j;
+					if (isInRange(newI, newJ)) {
+						if (src.at<uchar>(newI, newJ) != 0) {
+							label = src.at<uchar>(newI, newJ);
+							labelFound = true;
+						}
+					}
+				}
+			}
+		}
+		cornersWithLabels.push_back(make_pair(p, label ));
+		
+		if (label != 0) {
+			circle(grey_image, p, 5, Scalar(0), 2, 8, 0);
+		}
 	}
+	Mat color_img;
+	cvtColor(grey_image, color_img, CV_GRAY2BGR);
+	cornersClasification(cornersWithLabels, color_img);
 	imshow("harris", grey_image);
-	return dst;
+	imshow("color", color_img);
+	return cornersWithLabels;
+}
+
+void cornersClasification (vector<pair<Point, int>> cornersWithLabels, Mat img) {
+	for (int i = 0; i < cornersWithLabels.size(); i++) {
+		if (cornersWithLabels.at(i).second != -1) {
+			vector<Point> cornersForLabel;
+			cornersForLabel.push_back(cornersWithLabels.at(i).first);
+			int currentLabel = cornersWithLabels.at(i).second;
+			for (int j = i + 1; j < cornersWithLabels.size(); j++) {
+				if (cornersWithLabels.at(j).second == currentLabel){
+					cornersForLabel.push_back(cornersWithLabels.at(j).first);
+					cornersWithLabels.at(j).second = -1;
+				}
+			}
+			cornersWithLabels.at(i).second = -1;
+			if (cornersForLabel.size() >= 7) {
+				classification(cornersForLabel, img);
+			}
+		}
+	}
+}
+
+void drawRectangle(vector<Point> corners, Mat color_img, ArrowType arrowType) {
+	int minX = width, minY = height, maxX = 0, maxY = 0;
+	for (int i = 0; i < corners.size(); i++) {
+		Point p = corners.at(i);
+		if (p.x < minX) {
+			minX = p.x;
+		}
+		if (p.x > maxX) {
+			maxX = p.x;
+		}
+		if (p.y < minY) {
+			minY = p.y;
+		}
+		if (p.y > maxY) {
+			maxY = p.y;
+		}
+	}
+	vector<Point> points;
+	points.push_back(Point(minX - 1, maxY + 1));
+	points.push_back(Point(minX + 1, minY - 1));
+	points.push_back(Point(maxX + 1, minY - 1));
+	points.push_back(Point(maxX + 1, maxY + 1));
+	Scalar color = { 255, 255, 255 };
+	if (arrowType == LEFT) {
+		color = { 255, 0, 0 };
+	}
+	if (arrowType == RIGHT) {
+		color = { 0, 0, 255 };
+	}
+	if (arrowType == UP) {
+		color = { 0, 255, 0 };
+	}
+	polylines(color_img, points, true, color, 2, CV_AA);
+}
+
+bool isLeft(Point a, Point b, Point c){
+	if (c.x < a.x || c.x < b.x) {
+		return true;
+	}
+	return false;
+}
+
+bool isUp(Point a, Point b, Point c) {
+	if (c.y < a.y || c.y < b.y) {
+		return true;
+	}
+	return false;
+}
+
+bool contains(vector<int> vector, int x) {
+	for (int i = 0; i < vector.size(); i++) {
+		if (vector.at(i) == x) {
+			return true;
+		}
+	}
+	return false;
+}
+
+ArrowType findOrientation(vector<Point> corners, vector<int> indexCollinearPoints) {
+	Point p1 = corners.at(indexCollinearPoints.at(0));
+	Point p2 = corners.at(indexCollinearPoints.at(1));
+	const double errorAngle = 30;
+	double angle = abs(atan2(abs(p2.y - p1.y), abs(p2.x - p1.x)) * 180 / M_PI);
+	if ((180 - angle) <= errorAngle || angle <= errorAngle) {
+		//horizontal line
+		int pointsInUpperPlane = 0, pointsInLowerPlane = 0;
+		for (int i = 0; i < corners.size(); i++) {
+			if (!contains(indexCollinearPoints, i)) {
+				if (isUp(p1, p2, corners.at(i))) {
+					pointsInUpperPlane++;
+				}
+				else {
+					pointsInLowerPlane++;
+				}
+			}
+		}
+		if (pointsInUpperPlane == 1) {
+			return UP;
+		}
+		if (pointsInLowerPlane == 1) {
+			return DOWN;
+		}
+	}
+	if (abs(angle - 90) <= errorAngle) {
+		//vertical line
+		int pointsInLeftPlane = 0, pointsInRightPlane = 0;
+		for (int i = 0; i < corners.size(); i++) {
+			if (!contains(indexCollinearPoints, i)) {
+				if (isLeft(p1, p2, corners.at(i))) {
+					pointsInLeftPlane++;
+				}
+				else {
+					pointsInRightPlane++;
+				}
+			}
+		}
+		if (pointsInLeftPlane == 1) {
+			return LEFT;
+		}
+		if (pointsInRightPlane == 1) {
+			return RIGHT;
+		}
+	}
+}
+
+void classification(vector<Point> corners, Mat color_img) {
+	const double distThreshold = 7;
+	const double distBetweenPointsThreshold = 20;
+	const int inlinersThreshold = 4;
+	int currentInliners;
+	bool inlinersFound = false;
+	for (int i = 0; i < corners.size() && !inlinersFound; i++) {
+		double a, b, c;
+		Point p1 = corners.at(i);
+		Point p2;
+		p2 = corners.at((i + 1)%corners.size());
+		currentInliners = 2;
+		double distBetweenPoints = sqrt(pow(p1.x - p2.x, 2.0) + pow(p1.y - p2.y, 2.0));
+		if (distBetweenPoints <= distBetweenPointsThreshold) {
+			vector<int> indexInliners;
+			indexInliners.push_back(i);
+			indexInliners.push_back((i + 1) % corners.size());
+			a = p1.y - p2.y;
+			b = p2.x - p1.x;
+			c = p1.x * p2.y - p2.x * p1.y;
+			double num = sqrt(a * a + b * b);
+			for (int j = 0; j < corners.size() && !inlinersFound; j++) {
+				if (j != i && j != ((i + 1) % corners.size())) {
+					Point p = corners.at(j);
+					double dist = abs(a * p.x + b * p.y + c) / num;
+					if (dist <= distThreshold) {
+						currentInliners++;
+						indexInliners.push_back(j);
+						if (currentInliners == inlinersThreshold) {
+							inlinersFound = true;
+							ArrowType arrowType = findOrientation(corners, indexInliners);
+							drawRectangle(corners, color_img, arrowType);
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 int main()
@@ -714,12 +1001,25 @@ int main()
 		Mat src_uchar = showIntMat("Input image", src);
 		Mat canny_uchar = showIntMat("Canny", contur);
 
-		Mat stretched = normalHough(canny_uchar, src_uchar);
+
+		vector<Vec2f> lanesCoord = hough(canny_uchar);
+		vector<Point2f> pointsROI = findROI(lanesCoord);
+
+		Mat dst = src_uchar.clone();
+		vector<Point> auxPoints{ pointsROI[0], pointsROI[1], pointsROI[2], pointsROI[3] };
+		polylines(dst, auxPoints, true, Scalar(255, 255, 255), 2, CV_AA);
+		imshow("ROI", dst);
+
+		Mat stretched = ipm(src_uchar, pointsROI);
 		Mat binarImage = binarization(stretched);
 		Mat closed = closing(binarImage, 3);
 		Mat opened = opening(closed, 5);
 		Mat etichetata = etichetare(closed, opened);
-		Mat withoutZebra = otherMarkingsElimination(etichetata);
+		imshow("binzarizata", etichetata);
+		const int thresholdForZebra = width / 3;
+		const int thresholdForLine = 4 * width / 5;
+		Mat withoutTransversalLine = otherMarkingsElimination(etichetata, thresholdForLine);
+		Mat withoutZebra = otherMarkingsElimination(withoutTransversalLine, thresholdForZebra);
 		harris(withoutZebra, stretched);
 		waitKey();
 	}
