@@ -561,7 +561,7 @@ Mat ipm(Mat src, vector<Point2f> pointsROI) {
 
 Mat binarization(Mat src) {
 	Mat dst = src.clone();
-	int threshold = 200;
+	int threshold = 170;
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width;  j++) {
 			if (src.at<uchar>(i, j) > threshold) {
@@ -712,8 +712,6 @@ int transversalMarking(Mat src, int threshold) {
 	int noOfLinesFound = 0;
 	int noOfWhitePixels = 0;
 	int whitePixelsError = 10;
-	//const int thresholdForZebra = width / 3;
-	//const int thresholdForLine = 4 * width / 5;
 	const int minLines = 3;
 	for (int i = 0; i < whitePixels.size(); i++) {
 		if (whitePixels.at(i) >= threshold) {
@@ -722,13 +720,7 @@ int transversalMarking(Mat src, int threshold) {
 				noOfLinesFound++;
 			}
 			else {
-				if (abs(whitePixels.at(i) - noOfWhitePixels) <= whitePixelsError) {
-					noOfLinesFound++;
-				}
-				else {
-					noOfLinesFound = 0;
-					noOfWhitePixels = 0;
-				}
+				noOfLinesFound++;
 			}
 			if (noOfLinesFound >= minLines) {
 				return i - noOfLinesFound + 1;
@@ -744,46 +736,67 @@ int transversalMarking(Mat src, int threshold) {
 	return -1;
 }
 
-Mat otherMarkingsElimination(Mat src, int threshold) {
+Mat otherMarkingsElimination(Mat src, int threshold, vector<Point>& markingPoints) {
 	Mat dst = src.clone();
 	vector<int> offsetI = { -1, 0, 1 };
 	vector<int> offsetJ = { -1, 0, 1 };
-	int lineZebra = transversalMarking(src, threshold);
-	if (lineZebra != -1) {
-		for (int j = 0; j < width; j++) {
-			if (dst.at<uchar>(lineZebra,j) != 0) {
-				deque<Point> points;
-				Point p;
-				p.x = j;
-				p.y = lineZebra;
-				points.push_back(p);
-				while (!points.empty()) {
-					Point p = points.front();
-					points.pop_front();
-					dst.at<uchar>(p.y, p.x) = 0;
-					for (int indexI = 0; indexI < offsetI.size(); indexI++) {
-						for (int indexJ = 0; indexJ < offsetJ.size(); indexJ++) {
-							int newI = p.y + offsetI.at(indexI);
-							int newJ = p.x + offsetJ.at(indexJ);
-							if (isInRange(newI, newJ)) {
-								if (dst.at<uchar>(newI, newJ) != 0) {
-									Point p;
-									p.x = newJ;
-									p.y = newI;
-									points.push_back(p);
-									dst.at<uchar>(p.y, p.x) = 0;
+	int firstLineMarking = transversalMarking(src, threshold);
+	int minY = height, maxY = 0, minX = width, maxX = 0;
+	if (firstLineMarking != -1 && firstLineMarking < height / 2) {
+		int i = firstLineMarking;
+		while (i < height && i <= firstLineMarking + 3) {
+			for (int j = 0; j < width; j++) {
+				if (dst.at<uchar>(i, j) != 0) {
+					deque<Point> points;
+					Point p;
+					p.x = j;
+					p.y = i;
+					points.push_back(p);
+					while (!points.empty()) {
+						Point p = points.front();
+						points.pop_front();
+						dst.at<uchar>(p.y, p.x) = 0;
+						if (p.x < minX) {
+							minX = p.x;
+						}
+						if (p.x > maxX) {
+							maxX = p.x;
+						}
+						if (p.y < minY) {
+							minY = p.y;
+						}
+						if (p.y > maxY) {
+							maxY = p.y;
+						}
+						for (int indexI = 0; indexI < offsetI.size(); indexI++) {
+							for (int indexJ = 0; indexJ < offsetJ.size(); indexJ++) {
+								int newI = p.y + offsetI.at(indexI);
+								int newJ = p.x + offsetJ.at(indexJ);
+								if (isInRange(newI, newJ)) {
+									if (dst.at<uchar>(newI, newJ) != 0) {
+										Point p;
+										p.x = newJ;
+										p.y = newI;
+										points.push_back(p);
+										dst.at<uchar>(p.y, p.x) = 0;
+									}
 								}
 							}
 						}
 					}
 				}
 			}
+			i++;
 		}
+		markingPoints.push_back(Point(minX, maxY));
+		markingPoints.push_back(Point(minX, minY));
+		markingPoints.push_back(Point(maxX, minY));
+		markingPoints.push_back(Point(maxX, maxY));
 	}
 	return dst;
 }
 
-vector<pair<Point, int>> harris(Mat src, Mat grey_image) {
+Mat harris(Mat src, Mat grey_image) {
 	Mat dst;
 	dst = src.clone();
 	vector<Point> corners;
@@ -819,8 +832,8 @@ vector<pair<Point, int>> harris(Mat src, Mat grey_image) {
 	cvtColor(grey_image, color_img, CV_GRAY2BGR);
 	cornersClasification(cornersWithLabels, color_img);
 	imshow("harris", grey_image);
-	imshow("color", color_img);
-	return cornersWithLabels;
+	//imshow("color", color_img);
+	return color_img;
 }
 
 void cornersClasification (vector<pair<Point, int>> cornersWithLabels, Mat img) {
@@ -979,7 +992,7 @@ void classification(vector<Point> corners, Mat color_img) {
 						if (currentInliners == inlinersThreshold) {
 							inlinersFound = true;
 							ArrowType arrowType = findOrientation(corners, indexInliners);
-							drawRectangle(corners, color_img, arrowType);
+							//drawRectangle(corners, color_img, arrowType);
 						}
 					}
 				}
@@ -1012,15 +1025,27 @@ int main()
 
 		Mat stretched = ipm(src_uchar, pointsROI);
 		Mat binarImage = binarization(stretched);
+		
+		const int thresholdForZebra = width / 3;
+		const int thresholdForLine =  width / 2;
+		vector<Point> zebraPoints, stopLinePoints;
 		Mat closed = closing(binarImage, 3);
+		imshow("binar", closed);
+		Mat withoutTransversalLine = otherMarkingsElimination(closed, thresholdForLine, stopLinePoints);
+		Mat withoutZebra = otherMarkingsElimination(withoutTransversalLine, thresholdForZebra, zebraPoints);
 		Mat opened = opening(closed, 5);
 		Mat etichetata = etichetare(closed, opened);
-		imshow("binzarizata", etichetata);
-		const int thresholdForZebra = width / 3;
-		const int thresholdForLine = 4 * width / 5;
-		Mat withoutTransversalLine = otherMarkingsElimination(etichetata, thresholdForLine);
-		Mat withoutZebra = otherMarkingsElimination(withoutTransversalLine, thresholdForZebra);
-		harris(withoutZebra, stretched);
+		//const int thresholdForZebra = width / 3;
+		//const int thresholdForLine = 4 * width / 5;
+		//vector<Point> zebraPoints, stopLinePoints;
+		//Mat withoutTransversalLine = otherMarkingsElimination(etichetata, thresholdForLine, stopLinePoints);
+		//Mat withoutZebra = otherMarkingsElimination(withoutTransversalLine, thresholdForZebra, zebraPoints);
+		Mat color_img = harris(withoutZebra, stretched);
+		Mat color_zebra = color_img.clone();
+		polylines(color_zebra, zebraPoints, true, Scalar(255, 0, 0), 1, 8, 0);
+		polylines(color_img, stopLinePoints, true, Scalar(0, 255, 0), 1, 8, 0);
+		imshow("color linie", color_img);
+		imshow("color zebra", color_zebra);
 		waitKey();
 	}
 	return 0;
