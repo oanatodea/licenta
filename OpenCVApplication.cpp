@@ -698,12 +698,12 @@ Mat etichetare(Mat src, Mat opened) {
 	return dst;
 }
 
-int transversalMarking(Mat src, int threshold) {
+int transversalMarking(Mat src, int threshold, int minLineWidth) {
 	vector<int> whitePixels;
 	for (int i = 0; i < height; i++) {
 		int sum = 0;
 		for (int j = 0; j < width; j++) {
-			if (src.at<uchar>(i, j) != 0 ) {
+			if (src.at<uchar>(i, j) != 0) {
 				sum++;
 			}
 		}
@@ -712,17 +712,13 @@ int transversalMarking(Mat src, int threshold) {
 	int noOfLinesFound = 0;
 	int noOfWhitePixels = 0;
 	int whitePixelsError = 10;
-	const int minLines = 3;
 	for (int i = 0; i < whitePixels.size(); i++) {
 		if (whitePixels.at(i) >= threshold) {
+			noOfLinesFound++;
 			if (noOfLinesFound == 0) {
 				noOfWhitePixels = whitePixels.at(i);
-				noOfLinesFound++;
 			}
-			else {
-				noOfLinesFound++;
-			}
-			if (noOfLinesFound >= minLines) {
+			if (noOfLinesFound >= minLineWidth) {
 				return i - noOfLinesFound + 1;
 			}
 		}
@@ -736,17 +732,18 @@ int transversalMarking(Mat src, int threshold) {
 	return -1;
 }
 
-Mat otherMarkingsElimination(Mat src, int threshold, vector<Point>& markingPoints) {
+Mat otherMarkingsElimination(Mat src, int threshold, vector<Point>& markingPoints, int minLineWidth) {
 	Mat dst = src.clone();
 	vector<int> offsetI = { -1, 0, 1 };
 	vector<int> offsetJ = { -1, 0, 1 };
-	int firstLineMarking = transversalMarking(src, threshold);
+	int firstLineMarking = transversalMarking(src, threshold, minLineWidth);
 	int minY = height, maxY = 0, minX = width, maxX = 0;
 	if (firstLineMarking != -1 && firstLineMarking < height / 2) {
 		int i = firstLineMarking;
 		while (i < height && i <= firstLineMarking + 3) {
 			for (int j = 0; j < width; j++) {
 				if (dst.at<uchar>(i, j) != 0) {
+					minY = height, maxY = 0, minX = width, maxX = 0;
 					deque<Point> points;
 					Point p;
 					p.x = j;
@@ -992,13 +989,75 @@ void classification(vector<Point> corners, Mat color_img) {
 						if (currentInliners == inlinersThreshold) {
 							inlinersFound = true;
 							ArrowType arrowType = findOrientation(corners, indexInliners);
-							//drawRectangle(corners, color_img, arrowType);
+							drawRectangle(corners, color_img, arrowType);
 						}
 					}
 				}
 			}
 		}
 	}
+}
+
+bool checkMarking(vector<Point> markingPoints, int maxWidth) {
+	if (!markingPoints.empty() && abs(markingPoints[0].y - markingPoints[1].y) > maxWidth) {
+		return false;
+	}
+	return true;
+}
+
+void findLineOnROI(Mat src, vector<Point2f> pointsROI) {
+	Mat dst = binarization(src);
+	dst = closing(dst, 3);
+	//dst = opening(dst, 3);
+	Mat color_img;
+	cvtColor(src, color_img, CV_GRAY2BGR);
+	imshow("bin", dst);
+	//left line
+	Point p1 = pointsROI[0];
+	Point p2 = pointsROI[1];
+	int minY = min(p1.y, p2.y);
+	int maxY = max(p1.y, p2.y);
+	for (int y = minY; y < maxY; y++) {
+		double x = p1.x + (y - p1.y) * (p2.x - p1.x) / (p2.y - p1.y);
+		if (isInRange(y, x)) {
+			for (int xOffset = x - 7; xOffset <= x + 7; xOffset++) {
+				if (isInRange(y, xOffset)) {
+					if (dst.at<uchar>(y, xOffset) == 255) {
+						Vec3b color = color_img.at<Vec3b>(Point(xOffset, y));
+						color[0] = 0;
+						color[1] = 255;
+						color[2] = 0;
+						color_img.at<Vec3b>(Point(xOffset, y)) = color;
+					}
+				}
+			}
+		}
+	}
+
+	//right line
+	p1 = pointsROI[2];
+	p2 = pointsROI[3];
+	minY = min(p1.y, p2.y);
+	maxY = max(p1.y, p2.y);
+	for (int y = minY; y < maxY; y++) {
+		double x = p1.x + (y - p1.y) * (p2.x - p1.x) / (p2.y - p1.y);
+		if (isInRange(y, x)) {
+			for (int xOffset = x - 7; xOffset <= x + 7; xOffset++) {
+				if (isInRange(y, xOffset)) {
+					if (dst.at<uchar>(y, xOffset) == 255) {
+						Vec3b color = color_img.at<Vec3b>(Point(xOffset, y));
+						color[0] = 0;
+						color[1] = 255;
+						color[2] = 0;
+						color_img.at<Vec3b>(Point(xOffset, y)) = color;
+					}
+				}
+			}
+		}
+	}
+
+	imshow("lanes", color_img);
+
 }
 
 int main()
@@ -1023,6 +1082,8 @@ int main()
 		polylines(dst, auxPoints, true, Scalar(255, 255, 255), 2, CV_AA);
 		imshow("ROI", dst);
 
+		findLineOnROI(src_uchar, pointsROI);
+
 		Mat stretched = ipm(src_uchar, pointsROI);
 		Mat binarImage = binarization(stretched);
 		
@@ -1030,22 +1091,27 @@ int main()
 		const int thresholdForLine =  width / 2;
 		vector<Point> zebraPoints, stopLinePoints;
 		Mat closed = closing(binarImage, 3);
-		imshow("binar", closed);
-		Mat withoutTransversalLine = otherMarkingsElimination(closed, thresholdForLine, stopLinePoints);
-		Mat withoutZebra = otherMarkingsElimination(withoutTransversalLine, thresholdForZebra, zebraPoints);
-		Mat opened = opening(closed, 5);
-		Mat etichetata = etichetare(closed, opened);
-		//const int thresholdForZebra = width / 3;
-		//const int thresholdForLine = 4 * width / 5;
-		//vector<Point> zebraPoints, stopLinePoints;
-		//Mat withoutTransversalLine = otherMarkingsElimination(etichetata, thresholdForLine, stopLinePoints);
-		//Mat withoutZebra = otherMarkingsElimination(withoutTransversalLine, thresholdForZebra, zebraPoints);
-		Mat color_img = harris(withoutZebra, stretched);
-		Mat color_zebra = color_img.clone();
-		polylines(color_zebra, zebraPoints, true, Scalar(255, 0, 0), 1, 8, 0);
-		polylines(color_img, stopLinePoints, true, Scalar(0, 255, 0), 1, 8, 0);
-		imshow("color linie", color_img);
-		imshow("color zebra", color_zebra);
+	//	imshow("binar", closed);
+		vector<vector<Point>> laneMarkingPoints;
+		//Mat withoutLaneMarkings = laneMarkingDetection(closed, laneMarkingPoints);
+		Mat withoutMarkings = otherMarkingsElimination(closed, thresholdForLine, stopLinePoints, 5);
+		withoutMarkings = otherMarkingsElimination(withoutMarkings, thresholdForZebra, zebraPoints, 7);
+		Mat opened = opening(withoutMarkings, 5);
+		Mat etichetata = etichetare(withoutMarkings, opened);
+		Mat color_img = harris(etichetata, stretched);
+		Mat laneImg = color_img.clone();
+		if (checkMarking(stopLinePoints, 30)) {
+			polylines(color_img, stopLinePoints, true, Scalar(0, 255, 255), 1, 8, 0);
+		}
+		if (checkMarking(zebraPoints, height/2)) {
+			polylines(color_img, zebraPoints, true, Scalar(255, 255, 0), 1, 8, 0);
+		}
+		//while (!laneMarkingPoints.empty()) {
+		//	polylines(laneImg, laneMarkingPoints.back(), true, Scalar(0, 255, 255), 1, 8, 0);
+	//		laneMarkingPoints.pop_back();
+	//	}
+	//	imshow("detectie", color_img);
+		//imshow("lane", laneImg);
 		waitKey();
 	}
 	return 0;
