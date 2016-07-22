@@ -846,7 +846,7 @@ void cornersClasification (vector<pair<Point, int>> cornersWithLabels, Mat img) 
 				}
 			}
 			cornersWithLabels.at(i).second = -1;
-			if (cornersForLabel.size() >= 7) {
+			if (cornersForLabel.size() >= 5) {
 				classification(cornersForLabel, img);
 			}
 		}
@@ -912,6 +912,15 @@ bool contains(vector<int> vector, int x) {
 }
 
 ArrowType findOrientation(vector<Point> corners, vector<int> indexCollinearPoints) {
+/*	int minX, maxX, minY, maxY;
+	minX = min(min(corners.at(indexPoints.at(0)).x, corners.at(indexPoints.at(1)).x), corners.at(indexPoints.at(2)).x);
+	maxX = max(max(corners.at(indexPoints.at(0)).x, corners.at(indexPoints.at(1)).x), corners.at(indexPoints.at(2)).x);
+	minY = min(min(corners.at(indexPoints.at(0)).y, corners.at(indexPoints.at(1)).y), corners.at(indexPoints.at(2)).y);
+	maxY = max(max(corners.at(indexPoints.at(0)).y, corners.at(indexPoints.at(1)).y), corners.at(indexPoints.at(2)).y);
+	for (int i = 0; i < corners.size(); i++) {
+		if (!contains(indexPoints, i)) {
+		}
+	}*/
 	Point p1 = corners.at(indexCollinearPoints.at(0));
 	Point p2 = corners.at(indexCollinearPoints.at(1));
 	const double errorAngle = 30;
@@ -959,6 +968,31 @@ ArrowType findOrientation(vector<Point> corners, vector<int> indexCollinearPoint
 }
 
 void classification(vector<Point> corners, Mat color_img) {
+	/*int noOfArrowsFound = 0;
+	const int maxLength = 70;
+	const int minLength = 20;
+	const int maxDiffBetweenLengths = 10;
+	for (int i = 0; i < corners.size() - 2 && noOfArrowsFound < 2; i++) {
+		Point p1 = corners.at(i);
+		for (int j = i + 1; j < corners.size() - 1; j++) {
+			Point p2 = corners.at(j);
+			for (int k = j + 1; k < corners.size(); k++) {
+				Point p3 = corners.at(k);
+				double dist1 = sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
+				double dist2 = sqrt(pow(p1.x - p3.x, 2) + pow(p1.y - p3.y, 2));
+				double dist3 = sqrt(pow(p3.x - p2.x, 2) + pow(p3.y - p2.y, 2));
+				if (dist1 <= maxLength  && dist1 >= minLength && dist2 <= maxLength && dist2 >= minLength && dist3 <= maxLength && dist3 >= minLength) {
+					if (abs(dist1 - dist2) < maxDiffBetweenLengths && abs(dist1 - dist3) < maxDiffBetweenLengths && abs(dist2 - dist3) < maxDiffBetweenLengths) {
+						noOfArrowsFound++;
+						polylines(color_img, vector < Point > {p1, p2, p3}, true, Scalar(0, 255, 0), 1, 8, 0);
+						//ArrowType arrowType = findOrientation(corners, vector < int > {i, j, k});
+						//drawRectangle(corners, color_img, arrowType);
+					}
+				}
+			}
+		}
+	}*/
+	//imshow("arrows", color_img);
 	const double distThreshold = 7;
 	const double distBetweenPointsThreshold = 20;
 	const int inlinersThreshold = 4;
@@ -988,6 +1022,7 @@ void classification(vector<Point> corners, Mat color_img) {
 						indexInliners.push_back(j);
 						if (currentInliners == inlinersThreshold) {
 							inlinersFound = true;
+							//line(color_img, corners.at(indexInliners.at(0)), corners.at(indexInliners.at(1)), Scalar(255, 0, 0), 1, 8, 0);
 							ArrowType arrowType = findOrientation(corners, indexInliners);
 							drawRectangle(corners, color_img, arrowType);
 						}
@@ -1011,7 +1046,7 @@ void findLineOnROI(Mat src, vector<Point2f> pointsROI) {
 	//dst = opening(dst, 3);
 	Mat color_img;
 	cvtColor(src, color_img, CV_GRAY2BGR);
-	imshow("bin", dst);
+	//imshow("bin", dst);
 	//left line
 	Point p1 = pointsROI[0];
 	Point p2 = pointsROI[1];
@@ -1098,6 +1133,7 @@ int main()
 		withoutMarkings = otherMarkingsElimination(withoutMarkings, thresholdForZebra, zebraPoints, 7);
 		Mat opened = opening(withoutMarkings, 5);
 		Mat etichetata = etichetare(withoutMarkings, opened);
+		imshow("before harris", etichetata);
 		Mat color_img = harris(etichetata, stretched);
 		Mat laneImg = color_img.clone();
 		if (checkMarking(stopLinePoints, 30)) {
@@ -1110,7 +1146,7 @@ int main()
 		//	polylines(laneImg, laneMarkingPoints.back(), true, Scalar(0, 255, 255), 1, 8, 0);
 	//		laneMarkingPoints.pop_back();
 	//	}
-	//	imshow("detectie", color_img);
+		imshow("detectie", color_img);
 		//imshow("lane", laneImg);
 		waitKey();
 	}

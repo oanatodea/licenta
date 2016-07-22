@@ -1,0 +1,73 @@
+﻿Build started 29.06.2016 02:07:26.
+     1>Project "C:\Users\Oana\Desktop\licenta\another try\OpenCVApplication-VS2013\OpenCVApplication.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /IOpenCV/Include /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _CRT_SECURE_NO_WARNINGS /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Debug\OpenCVApplication.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt OpenCVApplication.cpp
+         OpenCVApplication.cpp
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(55): warning C4018: '>' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(59): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(60): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(61): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(62): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(69): warning C4244: '=' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(103): warning C4244: '=' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(141): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(142): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(143): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(144): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(166): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(170): warning C4244: 'initializing' : conversion from 'const double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(221): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(222): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(223): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(224): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(369): warning C4244: '=' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(370): warning C4244: '=' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(396): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(402): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(424): warning C4244: '=' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(425): warning C4244: '=' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(443): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(496): warning C4244: 'argument' : conversion from 'int' to 'float', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(511): warning C4244: 'argument' : conversion from 'int' to 'float', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(543): warning C4244: 'argument' : conversion from 'int' to 'float', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(545): warning C4244: 'argument' : conversion from 'int' to 'float', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(546): warning C4244: 'argument' : conversion from 'int' to 'float', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(585): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(586): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(607): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(608): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(676): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(677): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(715): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(768): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(769): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(837): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(842): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(858): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(906): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(931): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(951): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(1001): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(1016): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(1057): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(1058): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(1079): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(1080): warning C4244: 'initializing' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\oana\desktop\licenta\another try\opencvapplication-vs2013\opencvapplication.cpp(968): warning C4715: 'findOrientation' : not all control paths return a value
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Oana\Desktop\licenta\another try\OpenCVApplication-VS2013\Debug\OpenCVApplication.exe" /INCREMENTAL /NOLOGO /LIBPATH:OpenCV/Lib opencv_ts300d.lib opencv_world300d.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Oana\Desktop\licenta\another try\OpenCVApplication-VS2013\Debug\OpenCVApplication.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Oana\Desktop\licenta\another try\OpenCVApplication-VS2013\Debug\OpenCVApplication.lib" /MACHINE:X86 Debug\common.obj
+         Debug\IPM.obj
+         Debug\OpenCVApplication.obj
+         Debug\stdafx.obj
+         OpenCVApplication.vcxproj -> C:\Users\Oana\Desktop\licenta\another try\OpenCVApplication-VS2013\Debug\OpenCVApplication.exe
+       PostBuildEvent:
+         copy OpenCV\dll\Debug\*.dll Debug
+         :VCEnd
+         OpenCV\dll\Debug\opencv_ffmpeg300.dll
+         OpenCV\dll\Debug\opencv_world300d.dll
+                 2 file(s) copied.
+     1>Done Building Project "C:\Users\Oana\Desktop\licenta\another try\OpenCVApplication-VS2013\OpenCVApplication.vcxproj" (Build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:04.31
